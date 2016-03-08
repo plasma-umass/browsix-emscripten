@@ -150,14 +150,19 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     var start = Date.now();
 #endif
 
-    var ret = Module['_main'](argc, argv, 0);
+  var ret = Module['_main'](argc, argv, 0);
 
 #if BENCHMARK
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
 #endif
 
+#if EMTERPRETIFY_ASYNC
+    if (EmterpreterAsync.state !== 1)
+        exit(ret, /* implicit = */ true);
+#else
     // if we're not running an evented main loop, it's time to exit
     exit(ret, /* implicit = */ true);
+#endif
   }
   catch(e) {
     if (e instanceof ExitStatus) {
@@ -220,9 +225,25 @@ function run(args) {
     }
 #endif
 
-    if (Module['onRuntimeInitialized']) Module['onRuntimeInitialized']();
+    if (Module['onRuntimeInitialized']) Module['onRuntimeInitialized']()
 
-    if (Module['_main'] && shouldRunNow) Module['callMain'](args);
+    if (Module['_main'] && shouldRunNow) {
+#if EMTERPRETIFY_BROWSIX
+      EmterpreterAsync.asyncFinalizers.push(function() {
+        Module['noExitRuntime'] = false;
+        // FIXME: get return value from callMain
+        exit(0, true);
+      });
+      process.once('ready', function() {
+        ENV = process.env;
+        // FIXME: set program name somewhere
+        Module['callMain'](process.argv.slice(2));
+      });
+      return;
+#else
+      Module['callMain'](args);
+#endif
+    }
 
     postRun();
   }
@@ -270,8 +291,9 @@ function exit(status, implicit) {
     if (Module['onExit']) Module['onExit'](status);
   }
 
-  if (ENVIRONMENT_IS_NODE) {
+  if (ENVIRONMENT_HAS_PROCESS) {
     process['exit'](status);
+    return;
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
   }
