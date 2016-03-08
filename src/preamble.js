@@ -1537,6 +1537,13 @@ function postRun() {
 #if USE_PTHREADS
   if (ENVIRONMENT_IS_PTHREAD) return; // PThreads reuse the runtime from the main thread.
 #endif
+#if EMTERPRETIFY_BROWSIX
+  console.log('postrun');
+  if (EmterpreterAsync.state !== 0) {
+    console.log('postrun called with bad state ' + EmterpreterAsync.state);
+    return;
+  }
+#endif
   // compatibility - merge in anything from Module['postRun'] at this time
   if (Module['postRun']) {
     if (typeof Module['postRun'] == 'function') Module['postRun'] = [Module['postRun']];
