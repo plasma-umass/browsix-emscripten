@@ -570,10 +570,6 @@
          W getwc_unlocked
          T getwchar
          W getwchar_unlocked
-         T glob
-         W glob64
-         T globfree
-         W globfree64
          U gmtime_r
          T grantpt
          C h_errno

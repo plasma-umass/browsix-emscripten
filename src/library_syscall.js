@@ -841,6 +841,21 @@ var SyscallsLibrary = {
     }
     return nonzero;
   },
+  __syscall174: function(which, varargs) { // rt_sigaction
+    console.log('TODO: rt_sigaction');
+    debugger;
+    return 0;
+  },
+  __syscall175: function(which, varargs) { // rt_sigprocmask
+    console.log('TODO: rt_sigprocmask');
+    debugger;
+    return 0;
+  },
+  __syscall176: function(which, varargs) { // rt_sigpending
+    console.log('TODO: rt_sigpending');
+    debugger;
+    return 0;
+  },
   __syscall180: function(which, varargs) { // pread64
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset);

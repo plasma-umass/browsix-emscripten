@@ -84,6 +84,8 @@ long __syscall152(int which, ...);
 long __syscall153(int which, ...);
 long __syscall163(int which, ...);
 long __syscall168(int which, ...);
+long __syscall174(int which, ...);
+long __syscall175(int which, ...);
 long __syscall180(int which, ...);
 long __syscall181(int which, ...);
 long __syscall183(int which, ...);
@@ -137,4 +139,3 @@ long __syscall331(int which, ...);
 long __syscall333(int which, ...);
 long __syscall334(int which, ...);
 long __syscall340(int which, ...);
-
