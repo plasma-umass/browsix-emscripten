@@ -841,16 +841,25 @@ var SyscallsLibrary = {
     }
     return nonzero;
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall174__deps: ['$EmterpreterAsync'],
+#endif
   __syscall174: function(which, varargs) { // rt_sigaction
     console.log('TODO: rt_sigaction');
     debugger;
     return 0;
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall175__deps: ['$EmterpreterAsync'],
+#endif
   __syscall175: function(which, varargs) { // rt_sigprocmask
     console.log('TODO: rt_sigprocmask');
     debugger;
     return 0;
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall176__deps: ['$EmterpreterAsync'],
+#endif
   __syscall176: function(which, varargs) { // rt_sigpending
     console.log('TODO: rt_sigpending');
     debugger;
