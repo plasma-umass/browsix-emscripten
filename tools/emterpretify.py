@@ -454,14 +454,14 @@ def push_stacktop(zero):
   return (' sp = EMTSTACKTOP;' if not ASYNC else ' sp = EMTSTACKTOP + 8 | 0;') if not zero else ''
 
 def pop_stacktop(zero):
-  return '//Module.print("exit");\n' + ((' EMTSTACKTOP = sp; ' if not ASYNC else 'EMTSTACKTOP = sp - 8 | 0; ') if not zero else '')
+  return '//Module.print("exit");\n       ' + ((' EMTSTACKTOP = sp; ' if not ASYNC else 'EMTSTACKTOP = sp - 8 | 0; ') if not zero else '')
 
 def handle_async_pre_call():
-  return 'HEAP32[sp - 4 >> 2] = pc;' if ASYNC else ''
+  return 'HEAP32[sp - 4 >> 2] = pc;\n     ' if ASYNC else ''
 
 def handle_async_post_call():
   assert not ZERO
-  return 'if ((asyncState|0) == 1) { ' + pop_stacktop(zero=False) + ' return }\n' if ASYNC else '' # save pc and exit immediately if currently saving state
+  return 'if ((asyncState|0) == 1) { ' + pop_stacktop(zero=False) + ' return;\n     }' if ASYNC else '' # save pc and exit immediately if currently saving state
 
 CASES[ROPCODES['INTCALL']] = '''
     lz = HEAPU8[(HEAP32[pc + 4 >> 2] | 0) + 1 | 0] | 0; // FUNC inst, see definition above; we read params here
@@ -490,7 +490,7 @@ CASES[ROPCODES['INTCALL']] = '''
   '}' if ASYNC else '',
   handle_async_pre_call(),
   handle_async_post_call(),
-  ('''} else {
+  ('''\n} else {
       while ((ly|0) < (lz|0)) {
         %s = %s;
         %s = %s;
@@ -568,22 +568,22 @@ def make_emterpreter(zero=False):
       ret = shared.JS.make_coercion(ret, actual_sigs[name][0]) # return value ignored, but need a coercion
     if ASYNC:
       # check if we are asyncing, and if not, it is ok to save the return value
-      ret = handle_async_pre_call() + ret + '; ' +  handle_async_post_call()
+      ret = handle_async_pre_call() + ret + ';\n     ' +  handle_async_post_call()
       if sig[0] != 'v':
-        ret += ' else ' + get_access('lx', sig[0]) + ' = ';
+        ret += ' else {\n       ' + get_access('lx', sig[0]) + ' = ';
         if sig[0] == 'i':
           ret += 'lz'
         else:
           assert sig[0] == 'd'
           ret += 'ld '
-        ret += ';'
+        ret += ';\n     }'
     extra = len(sig) - 1 + int(function_pointer_call) # [opcode, lx, target, sig], take the usual 4. params are extra
     if extra > 0:
-      ret += '; pc = pc + %d | 0' % (4*((extra+3)>>2))
+      ret += ';\n     pc = pc + %d | 0' % (4*((extra+3)>>2))
     return '     ' + ret + '; PROCEED_WITH_PC_BUMP;'
 
   CASES[ROPCODES['EXTCALL']] = 'switch ((inst>>>16)|0) {\n' + \
-    '\n'.join(['    case %d: {\n%s\n    }' % (i, make_target_call(i)) for i in range(global_func_id)]) + \
+    '\n'.join(['    case %d: /* %s */ {\n%s\n    }' % (i, global_func_names[i], make_target_call(i)) for i in range(global_func_id)]) + \
     '\n    default: assert(0);' + \
     '\n   }'
 
@@ -638,7 +638,7 @@ def make_emterpreter(zero=False):
 %s
    default: assert(0);
   }
-''' % ('\n'.join([fix_case('   case %d: %s break;' % (k, CASES[k])) for k in sorted(CASES.keys()) if opcode_used[OPCODES[k]]]))
+''' % ('\n'.join([fix_case('   case %d: /* %s */ %s break;' % (k, OPCODES[k], CASES[k])) for k in sorted(CASES.keys()) if opcode_used[OPCODES[k]]]))
   else:
     # emit an inner interpreter (innerterpreter) loop, of trivial opcodes that hopefully the JS engine will implement with no spills
     assert OPCODES[-1] == 'FUNC' # we don't need to emit that one
@@ -652,13 +652,13 @@ def make_emterpreter(zero=False):
   }
   switch (inst&255) {
 %s
-   default: assert(0);
+   default: assertZ(000); // WTF
   }
 ''' % (
   ' ' + '\n '.join(main_loop_prefix.split('\n')),
-  '\n'.join([fix_case('    case %d: %s break;' % (ROPCODES[k], CASES[ROPCODES[k]])) for k in OPCODES[:-1][:ROPCODES[INNERTERPRETER_LAST_OPCODE]+1]]),
-  '\n'.join([fix_case('    case %d:' % (ROPCODES[k])) for k in OPCODES[:-1][ROPCODES[INNERTERPRETER_LAST_OPCODE]+1:]]),
-  '\n'.join([fix_case('   case %d: %s break;' % (ROPCODES[k], CASES[ROPCODES[k]])) for k in OPCODES[:-1][ROPCODES[INNERTERPRETER_LAST_OPCODE]+1:]])
+  '\n'.join([fix_case('    case %d: /* %s */ %s break;' % (ROPCODES[k], OPCODES[k], CASES[ROPCODES[k]])) for k in OPCODES[:-1][:ROPCODES[INNERTERPRETER_LAST_OPCODE]+1]]),
+  '\n'.join([fix_case('    case %d: /* %s */' % (ROPCODES[k], OPCODES[k])) for k in OPCODES[:-1][ROPCODES[INNERTERPRETER_LAST_OPCODE]+1:]]),
+  '\n'.join([fix_case('    case %d: /* %s */ %s break;' % (ROPCODES[k], OPCODES[k], CASES[ROPCODES[k]])) for k in OPCODES[:-1][ROPCODES[INNERTERPRETER_LAST_OPCODE]+1:]])
 )
 
   return process(r'''
@@ -1058,4 +1058,3 @@ __ATPRERUN__.push(function() {
   asm.write(outfile)
 
 temp_files.clean()
-
