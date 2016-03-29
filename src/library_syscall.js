@@ -212,6 +212,7 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall3: function(which, varargs) { // read
+    console.log("TODO: read");
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
@@ -745,9 +746,51 @@ var SyscallsLibrary = {
     SYSCALLS.doMsync(addr, FS.getStream(info.fd), len, info.flags);
     return 0;
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall145__deps: ['$EmterpreterAsync'],
+#endif
   __syscall145: function(which, varargs) { // readv
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-    return SYSCALLS.doReadv(stream, iov, iovcnt);
+    return EmterpreterAsync.handle(function(resume) {
+
+      var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+
+      bufs = [];
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        if (len === 0)
+          continue;
+        bufs.push(HEAPU8.subarray(ptr, ptr+len));
+      }
+
+      if (!bufs.length)
+        return 0;
+
+      var lenRead = 0;
+      var sys = $syscall.internal;
+
+      function readOne() {
+        var buf = bufs.shift();
+        var done = function(err, len, data) {
+          if (!err) {
+            lenRead += len;
+            buf.set(data);
+          }
+
+          // TODO: set errno
+
+          if (bufs.length) {
+            readOne();
+          } else {
+            resume(function() {
+              return err ? -1 : lenRead;
+            });
+          }
+        };
+        sys.pread(fd, buf.length, 0, done);
+      }
+      readOne();
+    });
   },
 #if NO_FILESYSTEM
   __syscall146__postset: '/* flush anything remaining in the buffer during shutdown */ __ATEXIT__.push(function() { var fflush = Module["_fflush"]; if (fflush) fflush(0); var printChar = ___syscall146.printChar; if (!printChar) return; var buffers = ___syscall146.buffers; if (buffers[1].length) printChar(1, {{{ charCode("\n") }}}); if (buffers[2].length) printChar(2, {{{ charCode("\n") }}}); });',
@@ -756,7 +799,7 @@ var SyscallsLibrary = {
   __syscall146__deps: ['$EmterpreterAsync'],
 #endif
   __syscall146: function(which, varargs) { // writev
-#if NO_FILESYSTEM == 0
+#if 0
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
     return SYSCALLS.doWritev(stream, iov, iovcnt);
 #else
@@ -846,7 +889,6 @@ var SyscallsLibrary = {
 #endif
   __syscall174: function(which, varargs) { // rt_sigaction
     console.log('TODO: rt_sigaction');
-    debugger;
     return 0;
   },
 #if EMTERPRETIFY_ASYNC
@@ -854,7 +896,6 @@ var SyscallsLibrary = {
 #endif
   __syscall175: function(which, varargs) { // rt_sigprocmask
     console.log('TODO: rt_sigprocmask');
-    debugger;
     return 0;
   },
 #if EMTERPRETIFY_ASYNC
@@ -862,7 +903,6 @@ var SyscallsLibrary = {
 #endif
   __syscall176: function(which, varargs) { // rt_sigpending
     console.log('TODO: rt_sigpending');
-    debugger;
     return 0;
   },
   __syscall180: function(which, varargs) { // pread64
