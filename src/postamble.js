@@ -242,7 +242,7 @@ function run(args) {
       });
       Runtime.process.once('ready', function() {
         ENV = Runtime.process.env;
-        // FIXME: set program name somewhere
+        Module['thisProgram'] = Runtime.process.argv[0];
         Module['callMain'](Runtime.process.argv.slice(2));
       });
       return;

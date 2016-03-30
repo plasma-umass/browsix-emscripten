@@ -445,7 +445,7 @@ var USyscalls = (function () {
         else
             this.signalHandlers[type] = [handler];
     };
-    USyscalls.prototype.resultHandler = function (ev) {
+  USyscalls.prototype.resultHandler = function (ev) {
         var response = SYSCALLS.browsix.SyscallResponseFrom(ev);
         if (!response) {
             console.log('bad usyscall message, dropping');
@@ -555,21 +555,41 @@ var USyscalls = (function () {
     Module['exit'](status);
     return 0;
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall3__deps: ['$EmterpreterAsync'],
+#endif
   __syscall3: function(which, varargs) { // read
-    console.log("TODO: read");
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-    return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
+    return EmterpreterAsync.handle(function(resume) {
+
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+      var h = ho[0], off = ho[1];
+
+      var done = function(err, len, data) {
+        if (!err) {
+          h.slice(off, off+count).set(data);
+        }
+
+        // TODO: set errno
+
+        resume(function() {
+          return err ? -1 : len;
+        });
+      };
+      SYSCALLS.browsix.syscall.pread(fd, count, 0, done);
+    });
   },
 #if EMTERPRETIFY_ASYNC
   __syscall4__deps: ['$EmterpreterAsync'],
 #endif
   __syscall4: function(which, varargs) { // write
 
-    var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-    var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
-    var h = ho[0], off = ho[1];
-
     return EmterpreterAsync.handle(function(resume) {
+
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+      var h = ho[0], off = ho[1];
+
       var done = function(err, len) {
         // TODO: sett errno
         resume(function() {
@@ -579,24 +599,48 @@ var USyscalls = (function () {
       SYSCALLS.browsix.syscall.pwrite(fd, h.slice(off, off+count), 0, done);
     });
   },
+#if EMTERPRETIFY_ASYNC
+  __syscall5__deps: ['$EmterpreterAsync'],
+#endif
   __syscall5: function(which, varargs) { // open
-    var pathname = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get() // optional TODO
-    var stream = FS.open(pathname, flags, mode);
-    return stream.fd;
+    return EmterpreterAsync.handle(function(resume) {
+
+      var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get()
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(err, fd) {
+        // TODO: set errno
+
+        resume(function() {
+          return err ? -1 : fd;
+        });
+      };
+      SYSCALLS.browsix.syscall.open(pathname, flags, mode, done);
+    });
   },
   __syscall6__deps: ['$EmterpreterAsync'],
   __syscall6: function(which, varargs) { // close
-    // return EmterpreterAsync.handle(function(resume) {
-    //   var fd = SYSCALLS.get();
-    //   var sys = SYSCALLS.browsix.syscall;
-    //   var done = function(err, len) {
-    //     // TODO: sett errno
-    //     resume(function() {
-    //       return err ? -1 : len;
-    //     });
-    //   };
-    //   sys.close.apply(sys, [fd, done]);
-    // });
+    return EmterpreterAsync.handle(function(resume) {
+      var fd = SYSCALLS.get();
+      var done = function(err) {
+        // TODO: set errno
+        resume(function() {
+          return err ? -1 : 0;
+        });
+      };
+      SYSCALLS.browsix.syscall.close(fd, done);
+    });
 	  return 0;
   },
   __syscall9: function(which, varargs) { // link
@@ -1130,7 +1174,7 @@ var USyscalls = (function () {
             });
           }
         };
-        SYSCALLS.browsix.syscall.pread(fd, buf.length, 0, done);
+        SYSCALLS.browsix.syscall.pread(fd, buf.length, -1, done);
       }
       readOne();
     });
@@ -1230,7 +1274,7 @@ var USyscalls = (function () {
   __syscall174__deps: ['$EmterpreterAsync'],
 #endif
   __syscall174: function(which, varargs) { // rt_sigaction
-    console.log('TODO: rt_sigaction');
+    //console.log('TODO: rt_sigaction');
     return 0;
   },
 #if EMTERPRETIFY_ASYNC
