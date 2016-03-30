@@ -26,6 +26,62 @@ Runtime['addFunction'] = Runtime.addFunction;
 Runtime['removeFunction'] = Runtime.removeFunction;
 #endif
 
+
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
+var OnceEmitter = (function () {
+    function OnceEmitter() {
+        this.listeners = {};
+    }
+    OnceEmitter.prototype.once = function (event, cb) {
+        var cbs = this.listeners[event];
+        if (!cbs)
+            cbs = [cb];
+        else
+            cbs.push(cb);
+        this.listeners[event] = cbs;
+    };
+    OnceEmitter.prototype.emit = function (event) {
+        var args = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            args[_i - 1] = arguments[_i];
+        }
+        var cbs = this.listeners[event];
+        this.listeners[event] = [];
+        if (!cbs)
+            return;
+        for (var i = 0; i < cbs.length; i++) {
+            cbs[i].apply(null, args);
+        }
+    };
+    return OnceEmitter;
+})();
+Runtime.Process = (function (_super) {
+    __extends(Process, _super);
+    function Process(argv, environ) {
+        _super.call(this);
+        this.argv = argv;
+        this.env = environ;
+        this.syscall = null;
+    }
+    Process.prototype.exit = function (code) {
+        //Module['noExitRuntime'] = false;
+        if (code === void 0) { code = 0; }
+        this.syscall.exit(code);
+    };
+    return Process;
+})(OnceEmitter);
+
+Runtime.process = new Runtime.Process(null, null);
+
+#if USE_CLOSURE_COMPILER
+Runtime['Process'] = Runtime.Process;
+Runtime['process'] = Runtime.process;
+#endif
+
 #if BENCHMARK
 Module.realPrint = Module.print;
 Module.print = Module.printErr = function(){};

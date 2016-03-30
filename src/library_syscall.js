@@ -167,11 +167,6 @@ var SyscallsLibrary = {
 	  browsix: (function(){
 var exports = {};
 
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
 
 
 (function (AF) {
@@ -267,57 +262,24 @@ var SyscallResponse = (function () {
     SyscallResponse.requiredOnData = ['id', 'name', 'args'];
     return SyscallResponse;
 })();
-exports.SyscallResponse = SyscallResponse;
-var OnceEmitter = (function () {
-    function OnceEmitter() {
-        this.listeners = {};
-    }
-    OnceEmitter.prototype.once = function (event, cb) {
-        var cbs = this.listeners[event];
-        if (!cbs)
-            cbs = [cb];
-        else
-            cbs.push(cb);
-        this.listeners[event] = cbs;
-    };
-    OnceEmitter.prototype.emit = function (event) {
-        var args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            args[_i - 1] = arguments[_i];
-        }
-        var cbs = this.listeners[event];
-        this.listeners[event] = [];
-        if (!cbs)
-            return;
-        for (var i = 0; i < cbs.length; i++) {
-            cbs[i].apply(null, args);
-        }
-    };
-    return OnceEmitter;
-})();
-var Process = (function (_super) {
-    __extends(Process, _super);
-    function Process(argv, environ) {
-        _super.call(this);
-        this.argv = argv;
-        this.env = environ;
-    }
-    Process.prototype.exit = function (code) {
-        if (code === void 0) { code = 0; }
-        syscall_1.syscall.exit(code);
-    };
-    return Process;
-})(OnceEmitter);
+		  exports.SyscallResponse = SyscallResponse;
+		  exports.SyscallResponseFrom = function (ev) {
+			  var requiredOnData = ['id', 'name', 'args'];
+			  if (!ev.data)
+				  return;
+			  for (var i = 0; i < requiredOnData.length; i++) {
+				  if (!ev.data.hasOwnProperty(requiredOnData[i]))
+					  return;
+			  }
+			  var args = ev.data.args; //.map(convertApiErrors);
+			  return {id: ev.data.id, name: ev.data.name, args: args};
+		  };
 
 var USyscalls = (function () {
     function USyscalls() {
         this.msgIdSeq = 1;
         this.outstanding = {};
         this.signalHandlers = {};
-            if (typeof self !== 'undefined') {
-		    self.onmessage = this.resultHandler.bind(this);
-
-	    }
     }
     USyscalls.prototype.exit = function (code) {
         var msgId = this.nextMsgId();
@@ -484,7 +446,7 @@ var USyscalls = (function () {
             this.signalHandlers[type] = [handler];
     };
     USyscalls.prototype.resultHandler = function (ev) {
-        var response = SyscallResponse.From(ev);
+        var response = SYSCALLS.browsix.SyscallResponseFrom(ev);
         if (!response) {
             console.log('bad usyscall message, dropping');
             console.log(ev);
@@ -531,23 +493,17 @@ var USyscalls = (function () {
 })();
 		  exports.syscall = new USyscalls();
 
-		  exports.process = new Process(null, null);
-
-		  var cb = (function(proc) {
-			  return function(data) {
-				  var args = data.args[0];
-				  var environ = data.args[1];
-				  args = [args[0]].concat(args);
-				  proc.argv = args;
-				  proc.env = environ;
-				  setTimeout(function () { proc.emit('ready'); }, 0);
-			  }
-		  })(exports.process);
+		  var cb = function(data) {
+			  var args = data.args[0];
+			  var environ = data.args[1];
+			  args = [args[0]].concat(args);
+			  Runtime.process.argv = args;
+			  Runtime.process.env = environ;
+			  setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+		  };
 
 		  exports.syscall.addEventListener('init', cb);
 
-		  if (typeof self !== 'undefined')
-			  self.process = process;
 		  return exports;
 	  }()),
 #endif // EMTERPRETIFY_BROWSIX
@@ -620,7 +576,7 @@ var USyscalls = (function () {
           return err ? -1 : len;
         });
       };
-      $syscall.internal.pwrite(fd, h.slice(off, off+count), 0, done);
+      SYSCALLS.browsix.syscall.pwrite(fd, h.slice(off, off+count), 0, done);
     });
   },
   __syscall5: function(which, varargs) { // open
@@ -632,7 +588,7 @@ var USyscalls = (function () {
   __syscall6: function(which, varargs) { // close
     // return EmterpreterAsync.handle(function(resume) {
     //   var fd = SYSCALLS.get();
-    //   var sys = $syscall.internal;
+    //   var sys = SYSCALLS.browsix.syscall;
     //   var done = function(err, len) {
     //     // TODO: sett errno
     //     resume(function() {
@@ -1174,7 +1130,7 @@ var USyscalls = (function () {
             });
           }
         };
-        $syscall.internal.pread(fd, buf.length, 0, done);
+        SYSCALLS.browsix.syscall.pread(fd, buf.length, 0, done);
       }
       readOne();
     });
@@ -1224,7 +1180,7 @@ var USyscalls = (function () {
             });
           }
         };
-        $syscall.internal.pwrite(fd, buf, 0, done);
+        SYSCALLS.browsix.syscall.pwrite(fd, buf, 0, done);
       }
       writeOne();
     });

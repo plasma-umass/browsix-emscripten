@@ -229,15 +229,21 @@ function run(args) {
 
     if (Module['_main'] && shouldRunNow) {
 #if EMTERPRETIFY_BROWSIX
+      if (typeof self !== 'undefined') {
+        self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+      }
+      // FIXME: this is crappy
+      Runtime.process.syscall = SYSCALLS.browsix.syscall;
+
       EmterpreterAsync.asyncFinalizers.push(function() {
         Module['noExitRuntime'] = false;
         // FIXME: get return value from callMain
         exit(0, true);
       });
-      process.once('ready', function() {
-        ENV = process.env;
+      Runtime.process.once('ready', function() {
+        ENV = Runtime.process.env;
         // FIXME: set program name somewhere
-        Module['callMain'](process.argv.slice(2));
+        Module['callMain'](Runtime.process.argv.slice(2));
       });
       return;
 #else
@@ -290,6 +296,11 @@ function exit(status, implicit) {
 
     if (Module['onExit']) Module['onExit'](status);
   }
+
+#if EMTERPRETIFY_BROWSIX
+  Runtime.process.exit(status);
+  return;
+#endif
 
   if (ENVIRONMENT_HAS_PROCESS) {
     process['exit'](status);
