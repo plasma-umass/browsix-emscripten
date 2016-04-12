@@ -3,8 +3,11 @@ var SyscallsLibrary = {
 #if NO_FILESYSTEM == 0
                    '$FS', '$ERRNO_CODES', '$PATH',
 #endif
+#if EMTERPRETIFY_BROWSIX
+                   '$EmterpreterAsync',
+#endif
 #if SYSCALL_DEBUG
-                   '$ERRNO_MESSAGES'
+                   '$ERRNO_MESSAGES',
 #endif
   ],
   $SYSCALLS: {
@@ -555,9 +558,6 @@ var USyscalls = (function () {
     Module['exit'](status);
     return 0;
   },
-#if EMTERPRETIFY_ASYNC
-  __syscall3__deps: ['$EmterpreterAsync'],
-#endif
   __syscall3: function(which, varargs) { // read
     return EmterpreterAsync.handle(function(resume) {
 
@@ -579,9 +579,6 @@ var USyscalls = (function () {
       SYSCALLS.browsix.syscall.pread(fd, count, 0, done);
     });
   },
-#if EMTERPRETIFY_ASYNC
-  __syscall4__deps: ['$EmterpreterAsync'],
-#endif
   __syscall4: function(which, varargs) { // write
 
     return EmterpreterAsync.handle(function(resume) {
@@ -599,9 +596,6 @@ var USyscalls = (function () {
       SYSCALLS.browsix.syscall.pwrite(fd, h.slice(off, off+count), 0, done);
     });
   },
-#if EMTERPRETIFY_ASYNC
-  __syscall5__deps: ['$EmterpreterAsync'],
-#endif
   __syscall5: function(which, varargs) { // open
     return EmterpreterAsync.handle(function(resume) {
 
@@ -629,7 +623,6 @@ var USyscalls = (function () {
       SYSCALLS.browsix.syscall.open(pathname, flags, mode, done);
     });
   },
-  __syscall6__deps: ['$EmterpreterAsync'],
   __syscall6: function(which, varargs) { // close
     return EmterpreterAsync.handle(function(resume) {
       var fd = SYSCALLS.get();
@@ -980,9 +973,6 @@ var USyscalls = (function () {
   __syscall114: function(which, varargs) { // wait4
     abort('cannot wait on child processes');
   },
-#if EMTERPRETIFY_ASYNC
-  __syscall118__deps: ['$EmterpreterAsync'],
-#endif
   __syscall118: function(which, varargs) { // fsync
     var stream = SYSCALLS.getStreamFromFD();
 #if EMTERPRETIFY_ASYNC
@@ -1134,9 +1124,6 @@ var USyscalls = (function () {
     SYSCALLS.doMsync(addr, FS.getStream(info.fd), len, info.flags);
     return 0;
   },
-#if EMTERPRETIFY_ASYNC
-  __syscall145__deps: ['$EmterpreterAsync'],
-#endif
   __syscall145: function(which, varargs) { // readv
     return EmterpreterAsync.handle(function(resume) {
 
@@ -1181,9 +1168,6 @@ var USyscalls = (function () {
   },
 #if NO_FILESYSTEM
   __syscall146__postset: '/* flush anything remaining in the buffer during shutdown */ __ATEXIT__.push(function() { var fflush = Module["_fflush"]; if (fflush) fflush(0); var printChar = ___syscall146.printChar; if (!printChar) return; var buffers = ___syscall146.buffers; if (buffers[1].length) printChar(1, {{{ charCode("\n") }}}); if (buffers[2].length) printChar(2, {{{ charCode("\n") }}}); });',
-#endif
-#if EMTERPRETIFY_ASYNC
-  __syscall146__deps: ['$EmterpreterAsync'],
 #endif
   __syscall146: function(which, varargs) { // writev
 #if 0
