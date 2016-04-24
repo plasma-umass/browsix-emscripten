@@ -567,7 +567,7 @@ var USyscalls = (function () {
 
       var done = function(err, len, data) {
         if (!err) {
-          h.slice(off, off+count).set(data);
+          h.subarray(off, off+count).set(data);
         }
 
         // TODO: set errno
@@ -791,49 +791,77 @@ var USyscalls = (function () {
   },
   __syscall102__deps: ['$SOCKFS', '$DNS', '_read_sockaddr', '_write_sockaddr'],
   __syscall102: function(which, varargs) { // socketcall
-    var call = SYSCALLS.get(), socketvararg = SYSCALLS.get();
-    // socketcalls pass the rest of the arguments in a struct
-    SYSCALLS.varargs = socketvararg;
-    switch (call) {
+    return EmterpreterAsync.handle(function(resume) {
+
+      var call = SYSCALLS.get(), socketvararg = SYSCALLS.get();
+      // socketcalls pass the rest of the arguments in a struct
+      SYSCALLS.varargs = socketvararg;
+      switch (call) {
       case 1: { // socket
         var domain = SYSCALLS.get(), type = SYSCALLS.get(), protocol = SYSCALLS.get();
-        var sock = SOCKFS.createSocket(domain, type, protocol);
-        assert(sock.stream.fd < 64); // XXX ? select() assumes socket fd values are in 0..63
-        return sock.stream.fd;
+        var done = function(err, fd) {
+          resume(function() {
+            return err ? -ERRNO_CODES.ENOSYS : fd;
+          });
+        };
+        SYSCALLS.browsix.syscall.socket(domain, type, protocol, done);
+        break;
       }
       case 2: { // bind
-        var sock = SYSCALLS.getSocketFromFD(), info = SYSCALLS.getSocketAddress();
-        sock.sock_ops.bind(sock, info.addr, info.port);
-        return 0;
+        var sock = SYSCALLS.get(), addrp = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'addrp') }}}];
+        var h = ho[0], off = ho[1];
+
+        var done = function(err) {
+          resume(function() {
+            return err !== undefined ? +err : 0;
+          });
+        };
+        SYSCALLS.browsix.syscall.bind(sock, h.slice(off, off+addrlen), done);
+        break;
       }
       case 3: { // connect
-        var sock = SYSCALLS.getSocketFromFD(), info = SYSCALLS.getSocketAddress();
+        console.log('TODO: connect');
+        var sock = SYSCALLS.get(), info = SYSCALLS.getSocketAddress();
         sock.sock_ops.connect(sock, info.addr, info.port);
         return 0;
       }
       case 4: { // listen
-        var sock = SYSCALLS.getSocketFromFD(), backlog = SYSCALLS.get();
-        sock.sock_ops.listen(sock, backlog);
-        return 0;
+        var sock = SYSCALLS.get(), backlog = SYSCALLS.get();
+        var done = function(err) {
+          resume(function() {
+            return err !== undefined ? +err : 0;
+          });
+        };
+        SYSCALLS.browsix.syscall.listen(sock, backlog, done);
+        break;
       }
       case 5: { // accept
-        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
-        var newsock = sock.sock_ops.accept(sock);
-        if (addr) {
-          var res = __write_sockaddr(addr, newsock.family, DNS.lookup_name(newsock.daddr), newsock.dport);
-          assert(!res.errno);
-        }
-        return newsock.stream.fd;
+        var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'addr') }}}];
+        var h = ho[0], off = ho[1];
+
+        var done = function(err, fd, clientaddr) {
+          if (!err) {
+            h.subarray(off, off+addrlen).set(clientaddr);
+          }
+
+          resume(function() {
+            return err ? +err : fd;
+          });
+        };
+        SYSCALLS.browsix.syscall.accept(sock, done);
+        break;
       }
       case 6: { // getsockname
-        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         // TODO: sock.saddr should never be undefined, see TODO in websocket_sock_ops.getname
         var res = __write_sockaddr(addr, sock.family, DNS.lookup_name(sock.saddr || '0.0.0.0'), sock.sport);
         assert(!res.errno);
         return 0;
       }
       case 7: { // getpeername
-        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         if (!sock.daddr) {
           return -ERRNO_CODES.ENOTCONN; // The socket is not connected.
         }
@@ -842,17 +870,32 @@ var USyscalls = (function () {
         return 0;
       }
       case 11: { // sendto
-        var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), length = SYSCALLS.get(), flags = SYSCALLS.get(), dest = SYSCALLS.getSocketAddress(true);
+        var sock = SYSCALLS.get(), msg = SYSCALLS.get(), length = SYSCALLS.get(), flags = SYSCALLS.get(), dest = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'msg') }}}];
+        var h = ho[0], off = ho[1];
         if (!dest) {
-          // send, no address provided
-          return FS.write(sock.stream, {{{ heapAndOffset('HEAP8', 'message') }}}, length);
+          if (flags) {
+            console.log('TODO: flags');
+          }
+          var done = function(err, n) {
+            resume(function() {
+              return err ? -1 : n;
+            });
+          };
+          SYSCALLS.browsix.syscall.pwrite(sock, h.slice(off, off+length), 0, done);
         } else {
           // sendto an address
-          return sock.sock_ops.sendmsg(sock, {{{ heapAndOffset('HEAP8', 'message') }}}, length, dest.addr, dest.port);
+          console.log('TODO: datagram sendto not implemented');
+          debugger;
+          resume(function() {
+            return -ERRNO_CODES.ENOSYS;
+          });
+          //return sock.sock_ops.sendmsg(sock, {{{ heapAndOffset('HEAP8', 'message') }}}, length, dest.addr, dest.port);
         }
+        break;
       }
       case 12: { // recvfrom
-        var sock = SYSCALLS.getSocketFromFD(), buf = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var sock = SYSCALLS.get(), buf = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         var msg = sock.sock_ops.recvmsg(sock, len);
         if (!msg) return 0; // socket is closed
         if (addr) {
@@ -866,7 +909,7 @@ var USyscalls = (function () {
         return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
       }
       case 15: { // getsockopt
-        var sock = SYSCALLS.getSocketFromFD(), level = SYSCALLS.get(), optname = SYSCALLS.get(), optval = SYSCALLS.get(), optlen = SYSCALLS.get();
+        var sock = SYSCALLS.get(), level = SYSCALLS.get(), optname = SYSCALLS.get(), optval = SYSCALLS.get(), optlen = SYSCALLS.get();
         // Minimal getsockopt aimed at resolving https://github.com/kripken/emscripten/issues/2211
         // so only supports SOL_SOCKET with SO_ERROR.
         if (level === {{{ cDefine('SOL_SOCKET') }}}) {
@@ -965,7 +1008,8 @@ var USyscalls = (function () {
         return bytesRead;
       }
       default: abort('unsupported socketcall syscall ' + call);
-    }
+      }
+    });
   },
   __syscall104: function(which, varargs) { // setitimer
     return -ERRNO_CODES.ENOSYS; // unsupported feature
