@@ -617,7 +617,10 @@ var USyscalls = (function () {
         // TODO: set errno
 
         resume(function() {
-          return err ? -1 : fd;
+          if (err && err.code === 'ENOENT')
+            return -ERRNO_CODES.ENOENT;
+          else
+            return err ? -1 : fd;
         });
       };
       SYSCALLS.browsix.syscall.open(pathname, flags, mode, done);
@@ -659,9 +662,16 @@ var USyscalls = (function () {
     FS.chmod(path, mode);
     return 0;
   },
-  __syscall20__deps: ['$PROCINFO'],
   __syscall20: function(which, varargs) { // getpid
-    return PROCINFO.pid;
+    return EmterpreterAsync.handle(function(resume) {
+      var done = function(err, pid) {
+        resume(function() {
+          return err ? -1 : pid;
+        });
+      };
+      SYSCALLS.browsix.syscall.getpid(done);
+    });
+	  return;
   },
   __syscall29: function(which, varargs) { // pause
     return -ERRNO_CODES.EINTR; // we can't pause
@@ -778,6 +788,15 @@ var USyscalls = (function () {
     }
     return 0;
   },
+  pthread_attr_getstacksize: function() {
+    return 0;
+  },
+  pthread_attr_setstacksize: function() {
+    return 0;
+  },
+  pthread_setcanceltype: function() {
+    return 0;
+  },
   __syscall94: function(which, varargs) { // fchmod
     var fd = SYSCALLS.get(), mode = SYSCALLS.get();
     FS.fchmod(fd, mode);
@@ -821,9 +840,15 @@ var USyscalls = (function () {
         break;
       }
       case 3: { // connect
-        console.log('TODO: connect');
-        var sock = SYSCALLS.get(), info = SYSCALLS.getSocketAddress();
-        sock.sock_ops.connect(sock, info.addr, info.port);
+        var sock = SYSCALLS.get(), addrp = SYSCALLS.get(), addrlen = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'addrp') }}}];
+        var h = ho[0], off = ho[1];
+        var done = function(err) {
+          resume(function() {
+            return err !== undefined ? +err : 0;
+          });
+        };
+        SYSCALLS.browsix.syscall.connect(sock, h.slice(off, off+addrlen), 0, done);
         return 0;
       }
       case 4: { // listen
@@ -906,7 +931,12 @@ var USyscalls = (function () {
         return msg.buffer.byteLength;
       }
       case 14: { // setsockopt
-        return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
+        console.log('FIXME: setsockopt');
+        resume(function() {
+          return 0;
+        });
+        break;
+        //return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
       }
       case 15: { // getsockopt
         var sock = SYSCALLS.get(), level = SYSCALLS.get(), optname = SYSCALLS.get(), optval = SYSCALLS.get(), optlen = SYSCALLS.get();
@@ -1081,6 +1111,7 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall142: function(which, varargs) { // newselect
+    console.log('TODO: newselect');
     // readfds are supported,
     // writefds checks socket open status
     // exceptfds not supported
@@ -1485,7 +1516,8 @@ var USyscalls = (function () {
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
-    var stream = SYSCALLS.getStreamFromFD(), cmd = SYSCALLS.get();
+    var stream = SYSCALLS.get(), cmd = SYSCALLS.get();
+    console.log('TODO: fcntl');
     switch (cmd) {
       case {{{ cDefine('F_DUPFD') }}}: {
         var arg = SYSCALLS.get();
