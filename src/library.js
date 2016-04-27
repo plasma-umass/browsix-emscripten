@@ -250,17 +250,17 @@ LibraryManager.library = {
     Module['exit'](status);
   },
 
-  fork__deps: ['__setErrNo', '$ERRNO_CODES'],
+  fork__deps: ['$SYSCALLS', '__syscall2'],
   fork: function() {
-    // pid_t fork(void);
-    // http://pubs.opengroup.org/onlinepubs/000095399/functions/fork.html
-    // We don't support multiple processes.
+    return ___syscall2();
+  },
+  vfork: 'fork',
+  posix_spawn: function() {
+    // TODO: we should be able to map this to Browsix's spawn(2)
     ___setErrNo(ERRNO_CODES.EAGAIN);
     return -1;
   },
-  vfork: 'fork',
-  posix_spawn: 'fork',
-  posix_spawnp: 'fork',
+  posix_spawnp: 'posix_spawn',
 
   setgroups__deps: ['__setErrNo', '$ERRNO_CODES', 'sysconf'],
   setgroups: function(ngroups, gidset) {

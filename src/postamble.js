@@ -150,7 +150,7 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     var start = Date.now();
 #endif
 
-  var ret = Module['_main'](argc, argv, 0);
+    var ret = Module['_main'](argc, argv, 0);
 
 #if BENCHMARK
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
@@ -243,7 +243,18 @@ function run(args) {
       Runtime.process.once('ready', function() {
         ENV = Runtime.process.env;
         Module['thisProgram'] = Runtime.process.argv[0];
-        Module['callMain'](Runtime.process.argv.slice(2));
+        if (Runtime.process.pid) {
+          console.log('reg stack: ' + asm.stackSave());
+          console.log('emt stack: ' + asm.emtStackSave());
+          assert(HEAP32.buffer === Runtime.process.parentBuffer);
+          assert(HEAP32[EMTSTACKTOP>>2] === Runtime.process.pc);
+          EmterpreterAsync.resumeFromFork(Runtime.process.pc, function() {
+            // child returns 0 from fork
+            return 0;
+          });
+        } else {
+          Module['callMain'](Runtime.process.argv.slice(2));
+        }
       });
       return;
 #else
