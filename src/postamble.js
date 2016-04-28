@@ -243,12 +243,12 @@ function run(args) {
       Runtime.process.once('ready', function() {
         ENV = Runtime.process.env;
         Module['thisProgram'] = Runtime.process.argv[0];
+
         if (Runtime.process.pid) {
-          console.log('reg stack: ' + asm.stackSave());
-          console.log('emt stack: ' + asm.emtStackSave());
           assert(HEAP32.buffer === Runtime.process.parentBuffer);
-          assert(HEAP32[EMTSTACKTOP>>2] === Runtime.process.pc);
-          EmterpreterAsync.resumeFromFork(Runtime.process.pc, function() {
+          assert(HEAP32[EMTSTACKTOP>>2] === Runtime.process.forkArgs.pc);
+
+          EmterpreterAsync.resumeFromFork(Runtime.process.forkArgs.pc, function() {
             // child returns 0 from fork
             return 0;
           });

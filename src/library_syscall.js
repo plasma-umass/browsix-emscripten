@@ -295,12 +295,12 @@ var USyscalls = (function () {
         };
         this.post(msgId, 'exit', code);
     };
-    USyscalls.prototype.fork = function (heap, stackTop, emtStackTop, pc, cb) {
+    USyscalls.prototype.fork = function (heap, args, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
         // explicitly NOT transferrable, as we want a copy, not to
         // invalidate the heap for this (parent) process
-        this.post(msgId, 'fork', heap, stackTop, emtStackTop, pc);
+        this.post(msgId, 'fork', heap, args);
     };
     USyscalls.prototype.kill = function (pid, cb) {
         var msgId = this.nextMsgId();
@@ -504,26 +504,43 @@ var USyscalls = (function () {
 		  exports.syscall = new USyscalls();
 
 		  var cb = function(data) {
+        // 0: args
+        // 1: environ
+        // 2: debug flag
+        // 3: pid (if fork)
+        // 4: heap (if fork)
+        // 5: fork args (if fork)
+
 			  var args = data.args[0];
 			  var environ = data.args[1];
         // args[3] is a copy of the heap - replace anything we just
         // alloc'd with it.
-        if (data.args[3]) {
-          Runtime.process.pid = data.args[4];
-          Runtime.process.stackTop = data.args[5];
-          Runtime.process.emtStackTop = data.args[6];
-          Runtime.process.pc = data.args[7];
-          Runtime.process.parentBuffer = data.args[3];
+        if (data.args[4]) {
+          var pid = data.args[3];
+          var heap = data.args[4];
+          var forkArgs = data.args[5];
+
+          Runtime.process.parentBuffer = heap;
+          Runtime.process.pid = pid;
+          Runtime.process.forkArgs = forkArgs;
+
           updateGlobalBuffer(Runtime.process.parentBuffer);
           updateGlobalBufferViews();
+
           assert(HEAP32.buffer === Runtime.process.parentBuffer);
-          asm.stackRestore(Runtime.process.stackTop);
-          asm.emtStackRestore(Runtime.process.emtStackTop);
+
+          asm.stackRestore(forkArgs.stackSave);
+          asm.emtStackRestore(forkArgs.emtStackTop);
         }
-			  args = [args[0]].concat(args);
-			  Runtime.process.argv = args;
-			  Runtime.process.env = environ;
-			  setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+
+        args = [args[0]].concat(args);
+
+        Runtime.process.argv = args;
+        Runtime.process.env = environ;
+
+        setTimeout(function () {
+          Runtime.process.emit('ready');
+        }, 0);
 		  };
 
 		  exports.syscall.addEventListener('init', cb);
@@ -582,13 +599,15 @@ var USyscalls = (function () {
   __syscall2__deps: ['__setErrNo', '$ERRNO_CODES'],
   __syscall2: function(which, varargs) { // fork
     return EmterpreterAsync.handle(function(resume) {
-      console.log('p reg stack: ' + asm.stackSave());
-      console.log('p emt stack: ' + asm.emtStackSave());
-      console.log('EMSTACKTOP:  ' + (EMTSTACKTOP));
-      console.log('EMSTACKTOP>: ' + (EMTSTACKTOP>>2));
       var pc = HEAP32[EMTSTACKTOP>>2];
 
-      SYSCALLS.browsix.syscall.fork(HEAPU8.buffer, asm.stackSave(), asm.emtStackSave(), pc, function(ret) {
+      var args = {
+        pc: HEAP32[EMTSTACKTOP>>2],
+        stackSave: asm.stackSave(),
+        emtStackTop: EMTSTACKTOP,
+      }
+
+      SYSCALLS.browsix.syscall.fork(HEAPU8.buffer, args, function(ret) {
         resume(function() {
           return ret;
         });
