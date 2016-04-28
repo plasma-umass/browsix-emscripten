@@ -941,6 +941,18 @@ function updateGlobalBufferViews() {
   Module['HEAPU32'] = HEAPU32 = new Uint32Array(buffer);
   Module['HEAPF32'] = HEAPF32 = new Float32Array(buffer);
   Module['HEAPF64'] = HEAPF64 = new Float64Array(buffer);
+  if (typeof asm !== 'undefined' && asm.update_heap) {
+    asm.update_heap();
+  } else {
+    HEAP8 = Module['HEAP8'];
+    HEAP16 = Module['HEAP16'];
+    HEAP32 = Module['HEAP32'];
+    HEAPU8 = Module['HEAPU8'];
+    HEAPU16 = Module['HEAPU16'];
+    HEAPU32 = Module['HEAPU32'];
+    HEAPF32 = Module['HEAPF32'];
+    HEAPF64 = Module['HEAPF64'];
+  }
 }
 
 var STATIC_BASE = 0, STATICTOP = 0, staticSealed = false; // static area

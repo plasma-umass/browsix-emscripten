@@ -696,7 +696,7 @@ function _emscripten_asm_const_%s(%s) {
     if settings.get('EMTERPRETIFY'):
       asm_runtime_funcs += ['emterpret']
       if settings.get('EMTERPRETIFY_ASYNC'):
-        asm_runtime_funcs += ['setAsyncState', 'emtStackSave', 'emtStackRestore']
+        asm_runtime_funcs += ['setAsyncState', 'emtStackSave', 'emtStackRestore', 'update_heap']
 
     if settings['SAFE_HEAP']:
       asm_runtime_funcs += ['setDynamicTop']
