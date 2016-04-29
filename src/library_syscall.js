@@ -295,6 +295,13 @@ var USyscalls = (function () {
         };
         this.post(msgId, 'exit', code);
     };
+    USyscalls.prototype.wait4 = function (pid, options, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        // explicitly NOT transferrable, as we want a copy, not to
+        // invalidate the heap for this (parent) process
+        this.post(msgId, 'wait4', pid, options);
+    };
     USyscalls.prototype.fork = function (heap, args, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
@@ -704,6 +711,20 @@ var USyscalls = (function () {
     FS.unlink(path);
     return 0;
   },
+  __syscall11: function(which, varargs) { // execve
+    return EmterpreterAsync.handle(function(resume) {
+      console.log('TODO: execve');
+      debugger;
+      var done = function(err) {
+        resume(function() {
+          return err;
+        });
+      };
+      //SYSCALLS.browsix.syscall.execve(done);
+    });
+	  return;
+    return 0;
+  },
   __syscall12: function(which, varargs) { // chdir
     var path = SYSCALLS.getStr();
     FS.chdir(path);
@@ -1101,7 +1122,24 @@ var USyscalls = (function () {
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
   __syscall114: function(which, varargs) { // wait4
-    abort('cannot wait on child processes');
+    return EmterpreterAsync.handle(function(resume) {
+
+      var pid = SYSCALLS.get(), wstatus = SYSCALLS.get(), options = SYSCALLS.get(), rusage = SYSCALLS.get();
+
+      var done = function(ret, wstatusIn, rusageIn) {
+        if (wstatus) {
+          HEAP32[wstatus>>2] = wstatusIn;
+        }
+        if (rusageIn) {
+          console.log('fixme: wait4 rusage');
+        }
+
+        resume(function() {
+          return ret;
+        });
+      };
+      SYSCALLS.browsix.syscall.wait4(pid, options, done);
+    });
   },
   __syscall118: function(which, varargs) { // fsync
     var stream = SYSCALLS.getStreamFromFD();
