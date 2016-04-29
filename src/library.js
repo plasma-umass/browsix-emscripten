@@ -228,21 +228,14 @@ LibraryManager.library = {
     }
   },
 
-  execl__deps: ['__setErrNo', '$ERRNO_CODES'],
-  execl: function(/* ... */) {
+  fexecve__deps: ['__setErrNo', '$ERRNO_CODES'],
+  fexecve: function(/* ... */) {
     // int execl(const char *path, const char *arg0, ... /*, (char *)0 */);
     // http://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
     // We don't support executing external code.
     ___setErrNo(ERRNO_CODES.ENOEXEC);
     return -1;
   },
-  execle: 'execl',
-  execlp: 'execl',
-  execv: 'execl',
-  execve: 'execl',
-  execvp: 'execl',
-  __execvpe: 'execl',
-  fexecve: 'execl',
 
   _exit: function(status) {
     // void _exit(int status);
@@ -2591,19 +2584,13 @@ LibraryManager.library = {
   // sys/wait.h
   // ==========================================================================
 
-  wait__deps: ['$ERRNO_CODES', '__setErrNo'],
-  wait: function(stat_loc) {
+  waitid: function(stat_loc) {
     // pid_t wait(int *stat_loc);
     // http://pubs.opengroup.org/onlinepubs/009695399/functions/wait.html
     // Makes no sense in a single-process environment.
     ___setErrNo(ERRNO_CODES.ECHILD);
     return -1;
   },
-  // NOTE: These aren't really the same, but we use the same stub for them all.
-  waitid: 'wait',
-  waitpid: 'wait',
-  wait3: 'wait',
-  wait4: 'wait',
 
   // ==========================================================================
   // errno.h

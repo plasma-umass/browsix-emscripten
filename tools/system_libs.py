@@ -97,9 +97,10 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     musl_srcdir = shared.path_from_root('system', 'lib', 'libc', 'musl', 'src')
     blacklist = set(
       ['ipc', 'passwd', 'thread',
-       'raise.c', 'sigsuspend.c', 'block.c', 'kill.c', 'sigtimedwait.c', 'getitimer.c', 'sigpending.c', 'sigqueue.c', 'sigaltstack.c',
-       'sched', 'ipc', 'time', 'linux', 'aio', 'exit', 'legacy', 'mq', 'process', 'search', 'setjmp', 'env', 'ldso', 'conf'] + # musl modules
-      ['memcpy.c', 'memset.c', 'memmove.c', 'getaddrinfo.c', 'getnameinfo.c', 'inet_addr.c', 'res_query.c', 'gai_strerror.c', 'proto.c', 'gethostbyaddr.c', 'gethostbyaddr_r.c', 'gethostbyname.c', 'gethostbyname2_r.c', 'gethostbyname_r.c', 'gethostbyname2.c', 'usleep.c', 'alarm.c', 'syscall.c'] + # individual files
+       'raise.c', 'sigsuspend.c', 'kill.c', 'sigtimedwait.c', 'getitimer.c', 'sigpending.c', 'sigqueue.c', 'sigaltstack.c',
+       'sched', 'ipc', 'time', 'linux', 'aio', 'exit', 'legacy', 'mq', 'search', 'setjmp', 'env', 'ldso', 'conf'] + # musl modules
+      ['fexecve.c', 'posix_spawnattr_destroy.c', 'posix_spawnattr_getflags.c', 'posix_spawnattr_getpgroup.c', 'posix_spawnattr_getsigdefault.c', 'posix_spawnattr_getsigmask.c', 'posix_spawnattr_init.c', 'posix_spawnattr_sched.c', 'posix_spawnattr_setflags.c', 'posix_spawnattr_setpgroup.c', 'posix_spawnattr_setsigdefault.c', 'posix_spawnattr_setsigmask.c', 'posix_spawn.c', 'posix_spawn_file_actions_addclose.c', 'posix_spawn_file_actions_adddup2.c', 'posix_spawn_file_actions_addopen.c', 'posix_spawn_file_actions_destroy.c', 'posix_spawn_file_actions_init.c', 'posix_spawnp.c', 'system.c', 'vfork.c',
+       'memcpy.c', 'memset.c', 'memmove.c', 'getaddrinfo.c', 'getnameinfo.c', 'inet_addr.c', 'res_query.c', 'gai_strerror.c', 'proto.c', 'gethostbyaddr.c', 'gethostbyaddr_r.c', 'gethostbyname.c', 'gethostbyname2_r.c', 'gethostbyname_r.c', 'gethostbyname2.c', 'usleep.c', 'alarm.c', 'syscall.c', 'waitid.c'] + # individual files
       ['abs.c', 'cos.c', 'cosf.c', 'cosl.c', 'sin.c', 'sinf.c', 'sinl.c', 'tan.c', 'tanf.c', 'tanl.c', 'acos.c', 'acosf.c', 'acosl.c', 'asin.c', 'asinf.c', 'asinl.c', 'atan.c', 'atanf.c', 'atanl.c', 'atan2.c', 'atan2f.c', 'atan2l.c', 'exp.c', 'expf.c', 'expl.c', 'log.c', 'logf.c', 'logl.c', 'sqrt.c', 'sqrtf.c', 'sqrtl.c', 'fabs.c', 'fabsf.c', 'fabsl.c', 'ceil.c', 'ceilf.c', 'ceill.c', 'floor.c', 'floorf.c', 'floorl.c', 'pow.c', 'powf.c', 'powl.c', 'round.c', 'roundf.c'] # individual math files
     )
     # TODO: consider using more math code from musl, doing so makes box2d faster
@@ -110,7 +111,7 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
           dir_parts = os.path.split(dirpath)
           cancel = False
           for part in dir_parts:
-            if part in blacklist and not f.endswith('pthread_sigmask.c'):
+            if part in blacklist and ((not f.endswith('pthread_sigmask.c')) or (not f.endswith('pthread_atfork.c'))):
               cancel = True
               break
           if not cancel:
