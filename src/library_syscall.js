@@ -354,6 +354,11 @@ var USyscalls = (function () {
         this.outstanding[msgId] = cb;
         this.post(msgId, 'getpid');
     };
+    USyscalls.prototype.getppid = function (cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'getppid');
+    };
     USyscalls.prototype.spawn = function (cwd, name, args, env, files, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
@@ -814,13 +819,20 @@ var USyscalls = (function () {
     if (old.fd === suggestFD) return suggestFD;
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
-  __syscall64__deps: ['$PROCINFO'],
   __syscall64: function(which, varargs) { // getppid
-    return PROCINFO.ppid;
+    return EmterpreterAsync.handle(function(resume) {
+      var done = function(err, pid) {
+        resume(function() {
+          return err ? -1 : pid;
+        });
+      };
+      SYSCALLS.browsix.syscall.getppid(done);
+    });
+	  return;
   },
   __syscall65__deps: ['$PROCINFO'],
   __syscall65: function(which, varargs) { // getpgrp
-    return PROCINFO.pgid;
+    abort('unsupported syscall getpgrp');
   },
   __syscall66: function(which, varargs) { // setsid
     return 0; // no-op
@@ -1612,53 +1624,7 @@ var USyscalls = (function () {
   __syscall221: function(which, varargs) { // fcntl64
     var stream = SYSCALLS.get(), cmd = SYSCALLS.get();
     console.log('TODO: fcntl');
-    switch (cmd) {
-      case {{{ cDefine('F_DUPFD') }}}: {
-        var arg = SYSCALLS.get();
-        if (arg < 0) {
-          return -ERRNO_CODES.EINVAL;
-        }
-        var newStream;
-        newStream = FS.open(stream.path, stream.flags, 0, arg);
-        return newStream.fd;
-      }
-      case {{{ cDefine('F_GETFD') }}}:
-      case {{{ cDefine('F_SETFD') }}}:
-        return 0;  // FD_CLOEXEC makes no sense for a single process.
-      case {{{ cDefine('F_GETFL') }}}:
-        return stream.flags;
-      case {{{ cDefine('F_SETFL') }}}: {
-        var arg = SYSCALLS.get();
-        stream.flags |= arg;
-        return 0;
-      }
-      case {{{ cDefine('F_GETLK') }}}:
-      case {{{ cDefine('F_GETLK64') }}}: {
-        var arg = SYSCALLS.get();
-        var offset = {{{ C_STRUCTS.flock.l_type }}};
-        // We're always unlocked.
-        {{{ makeSetValue('arg', 'offset', cDefine('F_UNLCK'), 'i16') }}};
-        return 0;
-      }
-      case {{{ cDefine('F_SETLK') }}}:
-      case {{{ cDefine('F_SETLKW') }}}:
-      case {{{ cDefine('F_SETLK64') }}}:
-      case {{{ cDefine('F_SETLKW64') }}}:
-        return 0; // Pretend that the locking is successful.
-      case {{{ cDefine('F_GETOWN_EX') }}}:
-      case {{{ cDefine('F_SETOWN') }}}:
-        return -ERRNO_CODES.EINVAL; // These are for sockets. We don't have them fully implemented yet.
-      case {{{ cDefine('F_GETOWN') }}}:
-        // musl trusts getown return values, due to a bug where they must be, as they overlap with errors. just return -1 here, so fnctl() returns that, and we set errno ourselves.
-        ___setErrNo(ERRNO_CODES.EINVAL);
-        return -1;
-      default: {
-#if SYSCALL_DEBUG
-        Module.printErr('warning: fctl64 unrecognized command ' + cmd);
-#endif
-        return -ERRNO_CODES.EINVAL;
-      }
-    }
+    return 0;
   },
   __syscall265: function(which, varargs) { // clock_nanosleep
 #if SYSCALL_DEBUG
