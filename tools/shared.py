@@ -895,7 +895,7 @@ if LLVM_TARGET == WASM_TARGET:
 #   -Wno-error=implicit-function-declaration
 # or disable even a warning about it with
 #   -Wno-implicit-function-declaration
-COMPILER_OPTS += ['-Werror=implicit-function-declaration']
+#COMPILER_OPTS += ['-Werror=implicit-function-declaration']
 
 USE_EMSDK = not os.environ.get('EMMAKEN_NO_SDK')
 
