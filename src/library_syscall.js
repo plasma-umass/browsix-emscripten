@@ -1363,10 +1363,6 @@ var USyscalls = (function () {
   __syscall146__postset: '/* flush anything remaining in the buffer during shutdown */ __ATEXIT__.push(function() { var fflush = Module["_fflush"]; if (fflush) fflush(0); var printChar = ___syscall146.printChar; if (!printChar) return; var buffers = ___syscall146.buffers; if (buffers[1].length) printChar(1, {{{ charCode("\n") }}}); if (buffers[2].length) printChar(2, {{{ charCode("\n") }}}); });',
 #endif
   __syscall146: function(which, varargs) { // writev
-#if 0
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-    return SYSCALLS.doWritev(stream, iov, iovcnt);
-#else
     return EmterpreterAsync.handle(function(resume) {
 
       var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
@@ -1380,8 +1376,11 @@ var USyscalls = (function () {
         bufs.push(HEAPU8.slice(ptr, ptr+len));
       }
 
-      if (!bufs.length)
-        return 0;
+      if (!bufs.length) {
+        return resume(function() {
+          return 0;
+        });
+      }
 
       var written = 0;
 
@@ -1405,7 +1404,6 @@ var USyscalls = (function () {
       }
       writeOne();
     });
-#endif // NO_FILESYSTEM == 0
   },
   __syscall147__deps: ['$PROCINFO'],
   __syscall147: function(which, varargs) { // getsid
