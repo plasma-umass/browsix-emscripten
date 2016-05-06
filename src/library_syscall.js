@@ -727,8 +727,6 @@ var USyscalls = (function () {
       };
       //SYSCALLS.browsix.syscall.execve(done);
     });
-	  return;
-    return 0;
   },
   __syscall12: function(which, varargs) { // chdir
     var path = SYSCALLS.getStr();
@@ -787,7 +785,21 @@ var USyscalls = (function () {
     var old = SYSCALLS.getStreamFromFD();
     return FS.open(old.path, old.flags, 0).fd;
   },
-  __syscall42: '__syscall51',      // pipe
+  __syscall42: function(which, varargs) { // pipe
+    return EmterpreterAsync.handle(function(resume) {
+      var pipefd = SYSCALLS.get();
+      var done = function(err, fd1, fd2) {
+        if (!err) {
+          HEAP32[(pipefd>>2)] = fd1;
+          HEAP32[(pipefd>>2)+1] = fd2;
+        }
+        resume(function() {
+          return err || 0;
+        });
+      };
+      SYSCALLS.browsix.syscall.pipe2(0, done);
+    });
+  },
   __syscall51: function(which, varargs) { // acct
     return -ERRNO_CODES.ENOSYS; // unsupported features
   },
@@ -1796,7 +1808,19 @@ var USyscalls = (function () {
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
   __syscall331: function(which, varargs) { // pipe2
-    return -ERRNO_CODES.ENOSYS; // unsupported feature
+    return EmterpreterAsync.handle(function(resume) {
+      var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
+      var done = function(err, fd1, fd2) {
+        if (!err) {
+          HEAP32[(pipefd>>2)] = fd1;
+          HEAP32[(pipefd>>2)+1] = fd2;
+        }
+        resume(function() {
+          return err || 0;
+        });
+      };
+      SYSCALLS.browsix.syscall.pipe2(flags, done);
+    });
   },
   __syscall333: function(which, varargs) { // preadv
 #if SYSCALL_DEBUG
