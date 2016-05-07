@@ -750,7 +750,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if js_opts is None: js_opts = opt_level >= 2
     if llvm_opts is None: llvm_opts = LLVM_OPT_LEVEL[opt_level]
     if opt_level == 0: debug_level = max(3, debug_level)
-    if memory_init_file is None: memory_init_file = opt_level >= 2
+    if memory_init_file is None: memory_init_file = False
 
     # TODO: support source maps with js_transform
     if js_transform and debug_level >= 4:
