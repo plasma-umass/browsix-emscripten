@@ -1456,7 +1456,7 @@ var USyscalls = (function () {
   __syscall175__deps: ['$EmterpreterAsync'],
 #endif
   __syscall175: function(which, varargs) { // rt_sigprocmask
-    console.log('TODO: rt_sigprocmask');
+    //console.log('TODO: rt_sigprocmask');
     return 0;
   },
 #if EMTERPRETIFY_ASYNC
