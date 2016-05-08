@@ -344,6 +344,11 @@ var USyscalls = (function () {
         this.outstanding[msgId] = cb;
         this.post(msgId, 'connect', fd, addr);
     };
+    USyscalls.prototype.chdir = function (path, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'chdir', path);
+    };
     USyscalls.prototype.getcwd = function (cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
@@ -738,11 +743,28 @@ var USyscalls = (function () {
     });
   },
   __syscall12: function(which, varargs) { // chdir
-    console.log('TODO: chdir');
-    abort('unsupported syscall chdir');
-    // var path = SYSCALLS.getStr();
-    // FS.chdir(path);
-    // return 0;
+    return EmterpreterAsync.handle(function(resume) {
+      var pathname_p = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(err) {
+        resume(function() {
+          return err;
+        });
+      };
+      SYSCALLS.browsix.syscall.chdir(pathname, done);
+    });
   },
   __syscall14: function(which, varargs) { // mknod
     console.log('TODO: mknod');
@@ -1564,7 +1586,14 @@ var USyscalls = (function () {
       var h = ho[0], off = ho[1];
 
       var done = function(cwd) {
-        h.subarray(off, off+size).set(cwd);
+        var sa = h.subarray(off, off+size);
+        var nullPos = cwd.byteLength;
+        if (nullPos >= size)
+          nullPos = size-1;
+
+        sa.set(cwd);
+        sa[nullPos] = 0;
+
         resume(function() {
           return buf;
         });
@@ -1756,40 +1785,20 @@ var USyscalls = (function () {
     return 0; // advice is welcome, but ignored
   },
   __syscall220: function(which, varargs) { // SYS_getdents64
-    console.log('TODO: getdents64');
-    abort('unsupported syscall getdents64');
-    //var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
-    // if (!stream.getdents) {
-    //   stream.getdents = FS.readdir(stream.path);
-    // }
-    // var pos = 0;
-    // while (stream.getdents.length > 0 && pos + {{{ C_STRUCTS.dirent.__size__ }}} < count) {
-    //   var id;
-    //   var type;
-    //   var name = stream.getdents.pop();
-    //   assert(name.length < 256); // limit of dirent struct
-    //   if (name[0] === '.') {
-    //     id = 1;
-    //     type = 4; // DT_DIR
-    //   } else {
-    //     var child = FS.lookupNode(stream.node, name);
-    //     id = child.id;
-    //     type = FS.isChrdev(child.mode) ? 2 :  // DT_CHR, character device.
-    //            FS.isDir(child.mode) ? 4 :     // DT_DIR, directory.
-    //            FS.isLink(child.mode) ? 10 :   // DT_LNK, symbolic link.
-    //            8;                             // DT_REG, regular file.
-    //   }
-    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_ino, 'id', 'i32') }}};
-    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_off, 'stream.position', 'i32') }}};
-    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_reclen, C_STRUCTS.dirent.__size__, 'i16') }}};
-    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_type, 'type', 'i8') }}};
-    //   for (var i = 0; i < name.length; i++) {
-    //     {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', 'name.charCodeAt(i)', 'i8') }}};
-    //   }
-    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', '0', 'i8') }}};
-    //   pos += {{{ C_STRUCTS.dirent.__size__ }}};
-    // }
-    // return pos;
+    return EmterpreterAsync.handle(function(resume) {
+      var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+
+      var done = function(err, buf) {
+        if (!err) {
+          HEAPU8.subarray(dirp, dirp+buf.byteLength).set(buf);
+        }
+        resume(function() {
+          return err ? err : buf.byteLength;
+        });
+      };
+
+      SYSCALLS.browsix.syscall.getdents(fd, count, done);
+    });
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
