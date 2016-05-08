@@ -126,6 +126,12 @@ LibraryManager.library = {
     return -1;
   },
 
+  getgrgid__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getgrgid: function() {
+    ___setErrNo(ERRNO_CODES.EIO);
+    return 0;
+  },
+
   fpathconf__deps: ['__setErrNo', '$ERRNO_CODES'],
   fpathconf: function(fildes, name) {
 #if USE_PTHREADS
