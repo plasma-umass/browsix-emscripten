@@ -439,6 +439,11 @@ var USyscalls = (function () {
         this.outstanding[msgId] = cb;
         this.post(msgId, 'stat', path);
     };
+    USyscalls.prototype.access = function (path, flags, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'access', path, flags);
+    };
     USyscalls.prototype.ioctl = function (fd, request, length, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
@@ -667,7 +672,7 @@ var USyscalls = (function () {
   __syscall5: function(which, varargs) { // open
     return EmterpreterAsync.handle(function(resume) {
 
-      var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get()
+      var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
       var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
       var h = ho[0], ptr = ho[1];
 
@@ -708,13 +713,17 @@ var USyscalls = (function () {
 	  return 0;
   },
   __syscall9: function(which, varargs) { // link
-    var oldpath = SYSCALLS.get(), newpath = SYSCALLS.get();
-    return -ERRNO_CODES.EMLINK; // no hardlinks for us
+    console.log('TODO: link');
+    abort('unsupported syscall link');
+    // var oldpath = SYSCALLS.get(), newpath = SYSCALLS.get();
+    // return -ERRNO_CODES.EMLINK; // no hardlinks for us
   },
   __syscall10: function(which, varargs) { // unlink
-    var path = SYSCALLS.getStr();
-    FS.unlink(path);
-    return 0;
+    console.log('TODO: unlink');
+    abort('unsupported syscall unlink');
+    // var path = SYSCALLS.getStr();
+    // FS.unlink(path);
+    // return 0;
   },
   __syscall11: function(which, varargs) { // execve
     return EmterpreterAsync.handle(function(resume) {
@@ -729,18 +738,24 @@ var USyscalls = (function () {
     });
   },
   __syscall12: function(which, varargs) { // chdir
-    var path = SYSCALLS.getStr();
-    FS.chdir(path);
-    return 0;
+    console.log('TODO: chdir');
+    abort('unsupported syscall chdir');
+    // var path = SYSCALLS.getStr();
+    // FS.chdir(path);
+    // return 0;
   },
   __syscall14: function(which, varargs) { // mknod
-    var path = SYSCALLS.getStr(), mode = SYSCALLS.get(), dev = SYSCALLS.get();
-    return SYSCALLS.doMknod(path, mode, dev);
+    console.log('TODO: mknod');
+    abort('unsupported syscall mknod');
+    // var path = SYSCALLS.getStr(), mode = SYSCALLS.get(), dev = SYSCALLS.get();
+    // return SYSCALLS.doMknod(path, mode, dev);
   },
   __syscall15: function(which, varargs) { // chmod
-    var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
-    FS.chmod(path, mode);
-    return 0;
+    console.log('TODO: chmod');
+    abort('unsupported syscall chmod');
+    // var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
+    // FS.chmod(path, mode);
+    // return 0;
   },
   __syscall20: function(which, varargs) { // getpid
     return EmterpreterAsync.handle(function(resume) {
@@ -751,39 +766,71 @@ var USyscalls = (function () {
       };
       SYSCALLS.browsix.syscall.getpid(done);
     });
-	  return;
   },
   __syscall29: function(which, varargs) { // pause
+    console.log('TODO: pause');
+    debugger;
     return -ERRNO_CODES.EINTR; // we can't pause
   },
   __syscall33: function(which, varargs) { // access
-    var path = SYSCALLS.getStr(), amode = SYSCALLS.get();
-    return SYSCALLS.doAccess(path, amode);
+    return EmterpreterAsync.handle(function(resume) {
+      var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(result) {
+        resume(function() {
+          return result;
+        });
+      };
+
+      SYSCALLS.browsix.syscall.access(pathname, flags, done);
+    });
   },
   __syscall34: function(which, varargs) { // nice
+    console.log('TODO: nice');
     var inc = SYSCALLS.get();
     return -ERRNO_CODES.EPERM; // no meaning to nice for our single-process environment
   },
   __syscall36: function(which, varargs) { // sync
+    console.log('TODO: sync');
     return 0;
   },
   __syscall38: function(which, varargs) { // rename
-    var old_path = SYSCALLS.getStr(), new_path = SYSCALLS.getStr();
-    FS.rename(old_path, new_path);
-    return 0;
+    console.log('TODO: rename');
+    abort('unsupported syscall rename');
+    // var old_path = SYSCALLS.getStr(), new_path = SYSCALLS.getStr();
+    // FS.rename(old_path, new_path);
+    // return 0;
   },
   __syscall39: function(which, varargs) { // mkdir
-    var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
-    return SYSCALLS.doMkdir(path, mode);
+    console.log('TODO: mkdir');
+    abort('unsupported syscall mkdir');
+    // var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
+    // return SYSCALLS.doMkdir(path, mode);
   },
   __syscall40: function(which, varargs) { // rmdir
-    var path = SYSCALLS.getStr();
-    FS.rmdir(path);
-    return 0;
+    console.log('TODO: rmdir');
+    abort('unsupported syscall rmdir');
+    // var path = SYSCALLS.getStr();
+    // FS.rmdir(path);
+    // return 0;
   },
   __syscall41: function(which, varargs) { // dup
-    var old = SYSCALLS.getStreamFromFD();
-    return FS.open(old.path, old.flags, 0).fd;
+    console.log('TODO: dup');
+    abort('unsupported syscall dup');
+    // var old = SYSCALLS.getStreamFromFD();
+    // return FS.open(old.path, old.flags, 0).fd;
   },
   __syscall42: function(which, varargs) { // pipe
     return EmterpreterAsync.handle(function(resume) {
@@ -804,6 +851,7 @@ var USyscalls = (function () {
     return -ERRNO_CODES.ENOSYS; // unsupported features
   },
   __syscall54: function(which, varargs) { // ioctl
+    console.log('TODO: ioctl');
 #if NO_FILESYSTEM
 #if SYSCALL_DEBUG
     Module.printErr('no-op in ioctl syscall due to NO_FILESYSTEM');
@@ -815,21 +863,25 @@ var USyscalls = (function () {
   },
   __syscall57__deps: ['$PROCINFO'],
   __syscall57: function(which, varargs) { // setpgid
+    console.log('TODO: setpgid');
     var pid = SYSCALLS.get(), pgid = SYSCALLS.get();
     if (pid && pid !== PROCINFO.pid) return -ERRNO_CODES.ESRCH;
     if (pgid && pgid !== PROCINFO.pgid) return -ERRNO_CODES.EPERM;
     return 0;
   },
   __syscall60: function(which, varargs) { // umask
+    console.log('TODO: umask');
     var mask = SYSCALLS.get();
     var old = SYSCALLS.umask;
     SYSCALLS.umask = mask;
     return old;
   },
   __syscall63: function(which, varargs) { // dup2
-    var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get();
-    if (old.fd === suggestFD) return suggestFD;
-    return SYSCALLS.doDup(old.path, old.flags, suggestFD);
+    console.log('TODO: umask');
+    abort('unsupported syscall dup2');
+    // var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get();
+    // if (old.fd === suggestFD) return suggestFD;
+    // return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
   __syscall64: function(which, varargs) { // getppid
     return EmterpreterAsync.handle(function(resume) {
@@ -847,12 +899,15 @@ var USyscalls = (function () {
     abort('unsupported syscall getpgrp');
   },
   __syscall66: function(which, varargs) { // setsid
+    console.log('TODO: setsid');
     return 0; // no-op
   },
   __syscall75: function(which, varargs) { // setrlimit
+    console.log('TODO: setrlimit');
     return 0; // no-op
   },
   __syscall77: function(which, varargs) { // getrusage
+    console.log('TODO: getrusage');
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -865,13 +920,17 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall83: function(which, varargs) { // symlink
-    var target = SYSCALLS.getStr(), linkpath = SYSCALLS.getStr();
-    FS.symlink(target, linkpath);
-    return 0;
+    console.log('TODO: symlink');
+    abort('unsupported syscall symlink');
+    // var target = SYSCALLS.getStr(), linkpath = SYSCALLS.getStr();
+    // FS.symlink(target, linkpath);
+    // return 0;
   },
   __syscall85: function(which, varargs) { // readlink
-    var path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
-    return SYSCALLS.doReadlink(path, buf, bufsize);
+    console.log('TODO: readlink');
+    abort('unsupported syscall readlink');
+    //var path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
+    return -1;
   },
   __syscall91: function(which, varargs) { // munmap
     var addr = SYSCALLS.get(), len = SYSCALLS.get();
@@ -899,9 +958,11 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall94: function(which, varargs) { // fchmod
-    var fd = SYSCALLS.get(), mode = SYSCALLS.get();
-    FS.fchmod(fd, mode);
-    return 0;
+    console.log('TODO: fchmod');
+    abort('unsupported syscall fchmod');
+    // var fd = SYSCALLS.get(), mode = SYSCALLS.get();
+    // FS.fchmod(fd, mode);
+    // return 0;
   },
   __syscall96: function(which, varargs) { // getpriority
     return 0;
@@ -1166,31 +1227,33 @@ var USyscalls = (function () {
     });
   },
   __syscall118: function(which, varargs) { // fsync
-    var stream = SYSCALLS.getStreamFromFD();
-#if EMTERPRETIFY_ASYNC
-    return EmterpreterAsync.handle(function(resume) {
-      var mount = stream.node.mount;
-      if (!mount.type.syncfs) {
-        // We write directly to the file system, so there's nothing to do here.
-        resume(function() { return 0 });
-        return;
-      }
-      mount.type.syncfs(mount, false, function(err) {
-        if (err) {
-          resume(function() { return -ERRNO_CODES.EIO });
-          return;
-        }
-        resume(function() { return 0 });
-      });
-    });
-#else
-    return 0; // we can't do anything synchronously; the in-memory FS is already synced to
-#endif
+    console.log('TODO: fsync');
+//     var stream = SYSCALLS.getStreamFromFD();
+// #if EMTERPRETIFY_ASYNC
+//     return EmterpreterAsync.handle(function(resume) {
+//       var mount = stream.node.mount;
+//       if (!mount.type.syncfs) {
+//         // We write directly to the file system, so there's nothing to do here.
+//         resume(function() { return 0 });
+//         return;
+//       }
+//       mount.type.syncfs(mount, false, function(err) {
+//         if (err) {
+//           resume(function() { return -ERRNO_CODES.EIO });
+//           return;
+//         }
+//         resume(function() { return 0 });
+//       });
+//     });
+// #else
+//     return 0; // we can't do anything synchronously; the in-memory FS is already synced to
+// #endif
   },
   __syscall121: function(which, varargs) { // setdomainname
     return -ERRNO_CODES.EPERM;
   },
   __syscall122: function(which, varargs) { // uname
+    console.log('TODO: uname');
     var buf = SYSCALLS.get();
     if (!buf) return -ERRNO_CODES.EFAULT
     var layout = {{{ JSON.stringify(C_STRUCTS.utsname) }}};
@@ -1198,7 +1261,7 @@ var USyscalls = (function () {
       var offset = layout[element];
       writeAsciiToMemory(value, buf + offset);
     }
-    copyString('sysname', 'Emscripten');
+    copyString('sysname', 'Browsix');
     copyString('nodename', 'emscripten');
     copyString('release', '1.0');
     copyString('version', '#1');
@@ -1210,23 +1273,28 @@ var USyscalls = (function () {
   },
   __syscall132__deps: ['$PROCINFO'],
   __syscall132: function(which, varargs) { // getpgid
+    console.log('TODO: getpgid');
     var pid = SYSCALLS.get();
     if (pid && pid !== PROCINFO.pid) return -ERRNO_CODES.ESRCH;
     return PROCINFO.pgid;
   },
   __syscall133: function(which, varargs) { // fchdir
-    var stream = SYSCALLS.getStreamFromFD();
-    FS.chdir(stream.path);
-    return 0;
+    console.log('TODO: fchdir');
+    abort('unsupported system call fchdir');
+    // var stream = SYSCALLS.getStreamFromFD();
+    // FS.chdir(stream.path);
+    // return 0;
   },
   __syscall140: function(which, varargs) { // llseek
-    var stream = SYSCALLS.getStreamFromFD(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
-    var offset = offset_low;
-    assert(offset_high === 0);
-    FS.llseek(stream, offset, whence);
-    {{{ makeSetValue('result', '0', 'stream.position', 'i32') }}};
-    if (stream.getdents && offset === 0 && whence === {{{ cDefine('SEEK_SET') }}}) stream.getdents = null; // reset readdir state
-    return 0;
+    console.log('TODO: llseek');
+    abort('unsupported system call llseek');
+    // var stream = SYSCALLS.getStreamFromFD(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
+    // var offset = offset_low;
+    // assert(offset_high === 0);
+    // FS.llseek(stream, offset, whence);
+    // {{{ makeSetValue('result', '0', 'stream.position', 'i32') }}};
+    // if (stream.getdents && offset === 0 && whence === {{{ cDefine('SEEK_SET') }}}) stream.getdents = null; // reset readdir state
+    // return 0;
   },
   __syscall142: function(which, varargs) { // newselect
     console.log('TODO: newselect');
@@ -1311,11 +1379,13 @@ var USyscalls = (function () {
     return total;
   },
   __syscall144: function(which, varargs) { // msync
-    var addr = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get();
-    var info = SYSCALLS.mappings[addr];
-    if (!info) return 0;
-    SYSCALLS.doMsync(addr, FS.getStream(info.fd), len, info.flags);
-    return 0;
+    console.log('TODO: msync');
+    abort('unsupported system call msync');
+    // var addr = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get();
+    // var info = SYSCALLS.mappings[addr];
+    // if (!info) return 0;
+    // SYSCALLS.doMsync(addr, FS.getStream(info.fd), len, info.flags);
+    // return 0;
   },
   __syscall145: function(which, varargs) { // readv
     return EmterpreterAsync.handle(function(resume) {
@@ -1407,12 +1477,15 @@ var USyscalls = (function () {
   },
   __syscall147__deps: ['$PROCINFO'],
   __syscall147: function(which, varargs) { // getsid
+    console.log('TODO: getsid');
     var pid = SYSCALLS.get();
     if (pid && pid !== PROCINFO.pid) return -ERRNO_CODES.ESRCH;
     return PROCINFO.sid;
   },
   __syscall148: function(which, varargs) { // fdatasync
-    var stream = SYSCALLS.getStreamFromFD();
+    console.log('TODO: fdatasync');
+
+    // var stream = SYSCALLS.getStreamFromFD();
     return 0; // we can't do anything synchronously; the in-memory FS is already synced to
   },
   __syscall150: '__syscall153',     // mlock
@@ -1425,25 +1498,28 @@ var USyscalls = (function () {
     return -ERRNO_CODES.ENOMEM; // never succeed
   },
   __syscall168: function(which, varargs) { // poll
-    var fds = SYSCALLS.get(), nfds = SYSCALLS.get(), timeout = SYSCALLS.get();
-    var nonzero = 0;
-    for (var i = 0; i < nfds; i++) {
-      var pollfd = fds + {{{ C_STRUCTS.pollfd.__size__ }}} * i;
-      var fd = {{{ makeGetValue('pollfd', C_STRUCTS.pollfd.fd, 'i32') }}};
-      var events = {{{ makeGetValue('pollfd', C_STRUCTS.pollfd.events, 'i16') }}};
-      var mask = {{{ cDefine('POLLNVAL') }}};
-      var stream = FS.getStream(fd);
-      if (stream) {
-        mask = SYSCALLS.DEFAULT_POLLMASK;
-        if (stream.stream_ops.poll) {
-          mask = stream.stream_ops.poll(stream);
-        }
-      }
-      mask &= events | {{{ cDefine('POLLERR') }}} | {{{ cDefine('POLLHUP') }}};
-      if (mask) nonzero++;
-      {{{ makeSetValue('pollfd', C_STRUCTS.pollfd.revents, 'mask', 'i16') }}};
-    }
-    return nonzero;
+    console.log('TODO: poll');
+    abort('unsupported syscall poll');
+
+    // var fds = SYSCALLS.get(), nfds = SYSCALLS.get(), timeout = SYSCALLS.get();
+    // var nonzero = 0;
+    // for (var i = 0; i < nfds; i++) {
+    //   var pollfd = fds + {{{ C_STRUCTS.pollfd.__size__ }}} * i;
+    //   var fd = {{{ makeGetValue('pollfd', C_STRUCTS.pollfd.fd, 'i32') }}};
+    //   var events = {{{ makeGetValue('pollfd', C_STRUCTS.pollfd.events, 'i16') }}};
+    //   var mask = {{{ cDefine('POLLNVAL') }}};
+    //   var stream = FS.getStream(fd);
+    //   if (stream) {
+    //     mask = SYSCALLS.DEFAULT_POLLMASK;
+    //     if (stream.stream_ops.poll) {
+    //       mask = stream.stream_ops.poll(stream);
+    //     }
+    //   }
+    //   mask &= events | {{{ cDefine('POLLERR') }}} | {{{ cDefine('POLLHUP') }}};
+    //   if (mask) nonzero++;
+    //   {{{ makeSetValue('pollfd', C_STRUCTS.pollfd.revents, 'mask', 'i16') }}};
+    // }
+    // return nonzero;
   },
 #if EMTERPRETIFY_ASYNC
   __syscall174__deps: ['$EmterpreterAsync'],
@@ -1467,25 +1543,38 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall180: function(which, varargs) { // pread64
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
-    return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset);
+    console.log('TODO: pread64');
+    abort('unsupported syscall pread64');
+    // var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
+    // return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset);
   },
   __syscall181: function(which, varargs) { // pwrite64
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
-    return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, nbyte, offset);
+    console.log('TODO: pwrite64');
+    abort('unsupported syscall pwrite64');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
+//     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, nbyte, offset);
   },
   __syscall183: function(which, varargs) { // getcwd
-    var buf = SYSCALLS.get(), size = SYSCALLS.get();
-    if (size === 0) return -ERRNO_CODES.EINVAL;
-    var cwd = FS.cwd();
-    if (size < cwd.length + 1) return -ERRNO_CODES.ERANGE;
-    writeAsciiToMemory(cwd, buf);
-    return buf;
+    return EmterpreterAsync.handle(function(resume) {
+      var buf = SYSCALLS.get(), size = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+      var h = ho[0], off = ho[1];
+
+      var done = function(cwd) {
+        h.subarray(off, off+size).set(cwd);
+        resume(function() {
+          return buf;
+        });
+      };
+      SYSCALLS.browsix.syscall.getcwd(done);
+    });
   },
   __syscall191: function(which, varargs) { // ugetrlimit
+    console.log('TODO: ugetrlimit');
+
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -1517,30 +1606,98 @@ var USyscalls = (function () {
     return ptr;
   },
   __syscall193: function(which, varargs) { // truncate64
-    var path = SYSCALLS.getStr(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
-    FS.truncate(path, length);
-    return 0;
+    console.log('TODO: truncate64');
+    abort('unsupported syscall truncate64');
+    // var path = SYSCALLS.getStr(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
+    // FS.truncate(path, length);
+    // return 0;
   },
   __syscall194: function(which, varargs) { // ftruncate64
-    var fd = SYSCALLS.get(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
-    FS.ftruncate(fd, length);
-    return 0;
+    console.log('TODO: ftruncate64');
+    abort('unsupported syscall ftruncate64');
+    // var fd = SYSCALLS.get(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
+    // FS.ftruncate(fd, length);
+    // return 0;
   },
   __syscall195: function(which, varargs) { // SYS_stat64
-    var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
-    return SYSCALLS.doStat(FS.stat, path, buf);
+    return EmterpreterAsync.handle(function(resume) {
+      var pathname_p = SYSCALLS.get(), buf = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(err, stat) {
+        if (!err) {
+          HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+        }
+        resume(function() {
+          // FIXME: correct this
+          return err ? -1 : 0;
+        });
+      };
+
+      SYSCALLS.browsix.syscall.stat(pathname, done);
+    });
   },
   __syscall196: function(which, varargs) { // SYS_lstat64
-    var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
-    return SYSCALLS.doStat(FS.lstat, path, buf);
+    return EmterpreterAsync.handle(function(resume) {
+      var pathname_p = SYSCALLS.get(), buf = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(err, stat) {
+        if (!err) {
+          HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+        }
+        resume(function() {
+          // FIXME: correct this
+          return err ? -1 : 0;
+        });
+      };
+
+      SYSCALLS.browsix.syscall.lstat(pathname, done);
+    });
   },
   __syscall197: function(which, varargs) { // SYS_fstat64
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get();
-    return SYSCALLS.doStat(FS.stat, stream.path, buf);
+    return EmterpreterAsync.handle(function(resume) {
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get();
+
+      var done = function(err, stat) {
+        if (!err) {
+          HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+        }
+        resume(function() {
+          // FIXME: correct this
+          return err ? -1 : 0;
+        });
+      };
+
+      SYSCALLS.browsix.syscall.fstat(fd, done);
+    });
   },
   __syscall198: function(which, varargs) { // lchown32
-    var path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get();
-    FS.chown(path, owner, group); // XXX we ignore the 'l' aspect, and do the same as chown
+    console.log('TODO: lchown32');
+    // var path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get();
+    // FS.chown(path, owner, group); // XXX we ignore the 'l' aspect, and do the same as chown
     return 0;
   },
   __syscall199: '__syscall202',     // getuid32
@@ -1550,13 +1707,15 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall207: function(which, varargs) { // fchown32
-    var fd = SYSCALLS.get(), owner = SYSCALLS.get(), group = SYSCALLS.get();
-    FS.fchown(fd, owner, group);
+    console.log('TODO: fchown32');
+    // var fd = SYSCALLS.get(), owner = SYSCALLS.get(), group = SYSCALLS.get();
+    // FS.fchown(fd, owner, group);
     return 0;
   },
   __syscall212: function(which, varargs) { // chown32
-    var path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get();
-    FS.chown(path, owner, group);
+    console.log('TODO: chown32');
+    // var path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get();
+    // FS.chown(path, owner, group);
     return 0;
   },
   __syscall203: '__syscall214',     // setreuid32
@@ -1597,52 +1756,57 @@ var USyscalls = (function () {
     return 0; // advice is welcome, but ignored
   },
   __syscall220: function(which, varargs) { // SYS_getdents64
-    var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
-    if (!stream.getdents) {
-      stream.getdents = FS.readdir(stream.path);
-    }
-    var pos = 0;
-    while (stream.getdents.length > 0 && pos + {{{ C_STRUCTS.dirent.__size__ }}} < count) {
-      var id;
-      var type;
-      var name = stream.getdents.pop();
-      assert(name.length < 256); // limit of dirent struct
-      if (name[0] === '.') {
-        id = 1;
-        type = 4; // DT_DIR
-      } else {
-        var child = FS.lookupNode(stream.node, name);
-        id = child.id;
-        type = FS.isChrdev(child.mode) ? 2 :  // DT_CHR, character device.
-               FS.isDir(child.mode) ? 4 :     // DT_DIR, directory.
-               FS.isLink(child.mode) ? 10 :   // DT_LNK, symbolic link.
-               8;                             // DT_REG, regular file.
-      }
-      {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_ino, 'id', 'i32') }}};
-      {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_off, 'stream.position', 'i32') }}};
-      {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_reclen, C_STRUCTS.dirent.__size__, 'i16') }}};
-      {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_type, 'type', 'i8') }}};
-      for (var i = 0; i < name.length; i++) {
-        {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', 'name.charCodeAt(i)', 'i8') }}};
-      }
-      {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', '0', 'i8') }}};
-      pos += {{{ C_STRUCTS.dirent.__size__ }}};
-    }
-    return pos;
+    console.log('TODO: getdents64');
+    abort('unsupported syscall getdents64');
+    //var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+    // if (!stream.getdents) {
+    //   stream.getdents = FS.readdir(stream.path);
+    // }
+    // var pos = 0;
+    // while (stream.getdents.length > 0 && pos + {{{ C_STRUCTS.dirent.__size__ }}} < count) {
+    //   var id;
+    //   var type;
+    //   var name = stream.getdents.pop();
+    //   assert(name.length < 256); // limit of dirent struct
+    //   if (name[0] === '.') {
+    //     id = 1;
+    //     type = 4; // DT_DIR
+    //   } else {
+    //     var child = FS.lookupNode(stream.node, name);
+    //     id = child.id;
+    //     type = FS.isChrdev(child.mode) ? 2 :  // DT_CHR, character device.
+    //            FS.isDir(child.mode) ? 4 :     // DT_DIR, directory.
+    //            FS.isLink(child.mode) ? 10 :   // DT_LNK, symbolic link.
+    //            8;                             // DT_REG, regular file.
+    //   }
+    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_ino, 'id', 'i32') }}};
+    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_off, 'stream.position', 'i32') }}};
+    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_reclen, C_STRUCTS.dirent.__size__, 'i16') }}};
+    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_type, 'type', 'i8') }}};
+    //   for (var i = 0; i < name.length; i++) {
+    //     {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', 'name.charCodeAt(i)', 'i8') }}};
+    //   }
+    //   {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_name + ' + i', '0', 'i8') }}};
+    //   pos += {{{ C_STRUCTS.dirent.__size__ }}};
+    // }
+    // return pos;
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
+    console.log('TODO: fcntl64');
     var stream = SYSCALLS.get(), cmd = SYSCALLS.get();
     console.log('TODO: fcntl');
     return 0;
   },
   __syscall265: function(which, varargs) { // clock_nanosleep
+    console.log('TODO: nanosleep');
 #if SYSCALL_DEBUG
     Module.printErr('warning: ignoring SYS_clock_nanosleep');
 #endif
     return 0;
   },
   __syscall268: function(which, varargs) { // statfs64
+    console.log('TODO: statfs64');
     var path = SYSCALLS.getStr(), size = SYSCALLS.get(), buf = SYSCALLS.get();
     assert(size === {{{ C_STRUCTS.statfs.__size__ }}});
     // NOTE: None of the constants here are true. We're just returning safe and
@@ -1660,6 +1824,7 @@ var USyscalls = (function () {
     return 0;
   },
   __syscall269: function(which, varargs) { // fstatfs64
+    console.log('TODO: fstatfs64');
     var stream = SYSCALLS.getStreamFromFD(), size = SYSCALLS.get(), buf = SYSCALLS.get();
     return ___syscall([268, 0, size, buf], 0);
   },
@@ -1667,143 +1832,171 @@ var USyscalls = (function () {
     return 0; // your advice is important to us (but we can't use it)
   },
   __syscall295: function(which, varargs) { // openat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return FS.open(path, flags, mode).fd;
+    console.log('TODO: openat');
+    abort('unsupported syscall openat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     return FS.open(path, flags, mode).fd;
   },
   __syscall296: function(which, varargs) { // mkdirat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get();
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return SYSCALLS.doMkdir(path, mode);
+    console.log('TODO: mkdirat');
+    abort('unsupported syscall mkdirat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get();
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     return SYSCALLS.doMkdir(path, mode);
   },
   __syscall297: function(which, varargs) { // mknodat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get(), dev = SYSCALLS.get();
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return SYSCALLS.doMknod(path, mode, dev);
+    console.log('TODO: mknodat');
+    abort('unsupported syscall mknodat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get(), dev = SYSCALLS.get();
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     return SYSCALLS.doMknod(path, mode, dev);
   },
   __syscall298: function(which, varargs) { // fchownat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get(), flags = SYSCALLS.get();
-    assert(flags === 0);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    FS.chown(path, owner, group);
-    return 0;
+    console.log('TODO: fchownat');
+    abort('unsupported syscall fchownat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), owner = SYSCALLS.get(), group = SYSCALLS.get(), flags = SYSCALLS.get();
+//     assert(flags === 0);
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     FS.chown(path, owner, group);
+//     return 0;
   },
   __syscall299: function(which, varargs) { // futimesat
     abort('futimesat is obsolete');
   },
   __syscall300: function(which, varargs) { // fstatat64
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), buf = SYSCALLS.get(), flags = SYSCALLS.get();
-    var nofollow = flags & {{{ cDefine('AT_SYMLINK_NOFOLLOW') }}};
-    flags = flags & (~{{{ cDefine('AT_SYMLINK_NOFOLLOW') }}});
-    assert(!flags, flags);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return SYSCALLS.doStat(nofollow ? FS.lstat : FS.stat, path, buf);
+    console.log('TODO: fstatat64');
+    abort('unsupported syscall fstatat64');
+    // var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), buf = SYSCALLS.get(), flags = SYSCALLS.get();
+    // var nofollow = flags & {{{ cDefine('AT_SYMLINK_NOFOLLOW') }}};
+    // flags = flags & (~{{{ cDefine('AT_SYMLINK_NOFOLLOW') }}});
+    // assert(!flags, flags);
+    // path = SYSCALLS.calculateAt(dirfd, path);
+    // return SYSCALLS.doStat(nofollow ? FS.lstat : FS.stat, path, buf);
   },
   __syscall301: function(which, varargs) { // unlinkat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), flags = SYSCALLS.get();
-    assert(flags === 0);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    FS.unlink(path);
-    return 0;
+    console.log('TODO: unlinkat');
+    abort('unsupported syscall unlinkat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), flags = SYSCALLS.get();
+//     assert(flags === 0);
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     FS.unlink(path);
+//     return 0;
   },
   __syscall302: function(which, varargs) { // renameat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var olddirfd = SYSCALLS.get(), oldpath = SYSCALLS.getStr(), newdirfd = SYSCALLS.get(), newpath = SYSCALLS.getStr();
-    oldpath = SYSCALLS.calculateAt(olddirfd, oldpath);
-    newpath = SYSCALLS.calculateAt(newdirfd, newpath);
-    FS.rename(oldpath, newpath);
-    return 0;
+    console.log('TODO: renameat');
+    abort('unsupported syscall renameat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var olddirfd = SYSCALLS.get(), oldpath = SYSCALLS.getStr(), newdirfd = SYSCALLS.get(), newpath = SYSCALLS.getStr();
+//     oldpath = SYSCALLS.calculateAt(olddirfd, oldpath);
+//     newpath = SYSCALLS.calculateAt(newdirfd, newpath);
+//     FS.rename(oldpath, newpath);
+//     return 0;
   },
   __syscall303: function(which, varargs) { // linkat
     return -ERRNO_CODES.EMLINK; // no hardlinks for us
   },
   __syscall304: function(which, varargs) { // symlinkat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var target = SYSCALLS.get(), newdirfd = SYSCALLS.get(), linkpath = SYSCALLS.get();
-    linkpath = SYSCALLS.calculateAt(newdirfd, linkpath);
-    FS.symlink(target, linkpath);
-    return 0;
+    console.log('TODO: symlinkat');
+    abort('unsupported syscall symlinkat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var target = SYSCALLS.get(), newdirfd = SYSCALLS.get(), linkpath = SYSCALLS.get();
+//     linkpath = SYSCALLS.calculateAt(newdirfd, linkpath);
+//     FS.symlink(target, linkpath);
+//     return 0;
   },
   __syscall305: function(which, varargs) { // readlinkat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return SYSCALLS.doReadlink(path, buf, bufsize);
+    console.log('TODO: readlinkat');
+    abort('unsupported syscall readlinkat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     return SYSCALLS.doReadlink(path, buf, bufsize);
   },
   __syscall306: function(which, varargs) { // fchmodat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get(), flags = SYSCALLS.get();
-    assert(flags === 0);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    FS.chmod(path, mode);
-    return 0;
+    console.log('TODO: fchmodat');
+    abort('unsupported syscall fchmodat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), mode = SYSCALLS.get(), flags = SYSCALLS.get();
+//     assert(flags === 0);
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     FS.chmod(path, mode);
+//     return 0;
   },
   __syscall307: function(which, varargs) { // faccessat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), amode = SYSCALLS.get(), flags = SYSCALLS.get();
-    assert(flags === 0);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    return SYSCALLS.doAccess(path, amode);
+    console.log('TODO: faccessat');
+    abort('unsupported syscall faccessat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), amode = SYSCALLS.get(), flags = SYSCALLS.get();
+//     assert(flags === 0);
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     return SYSCALLS.doAccess(path, amode);
   },
   __syscall308: function(which, varargs) { // pselect
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
   __syscall320: function(which, varargs) { // utimensat
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), times = SYSCALLS.get(), flags = SYSCALLS.get();
-    assert(flags === 0);
-    path = SYSCALLS.calculateAt(dirfd, path);
-    var seconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_sec, 'i32') }}};
-    var nanoseconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
-    var atime = (seconds*1000) + (nanoseconds/(1000*1000));
-    times += {{{ C_STRUCTS.timespec.__size__ }}};
-    seconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_sec, 'i32') }}};
-    nanoseconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
-    var mtime = (seconds*1000) + (nanoseconds/(1000*1000));
-    FS.utime(path, atime, mtime);
-    return 0;
+    console.log('TODO: utimensat');
+    abort('unsupported syscall utimensat');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), times = SYSCALLS.get(), flags = SYSCALLS.get();
+//     assert(flags === 0);
+//     path = SYSCALLS.calculateAt(dirfd, path);
+//     var seconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_sec, 'i32') }}};
+//     var nanoseconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
+//     var atime = (seconds*1000) + (nanoseconds/(1000*1000));
+//     times += {{{ C_STRUCTS.timespec.__size__ }}};
+//     seconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_sec, 'i32') }}};
+//     nanoseconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
+//     var mtime = (seconds*1000) + (nanoseconds/(1000*1000));
+//     FS.utime(path, atime, mtime);
+//     return 0;
   },
   __syscall324: function(which, varargs) { // fallocate
-    var stream = SYSCALLS.getStreamFromFD(), mode = SYSCALLS.get(), offset = SYSCALLS.get64(), len = SYSCALLS.get64();
-    assert(mode === 0);
-    FS.allocate(stream, offset, len);
-    return 0;
+    console.log('TODO: fallocate');
+    abort('unsupported syscall fallocate');
+    // var stream = SYSCALLS.getStreamFromFD(), mode = SYSCALLS.get(), offset = SYSCALLS.get64(), len = SYSCALLS.get64();
+    // assert(mode === 0);
+    // FS.allocate(stream, offset, len);
+    // return 0;
   },
   __syscall330: function(which, varargs) { // dup3
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get(), flags = SYSCALLS.get();
-    assert(!flags);
-    if (old.fd === suggestFD) return -ERRNO_CODES.EINVAL;
-    return SYSCALLS.doDup(old.path, old.flags, suggestFD);
+    console.log('TODO: dup3');
+    abort('unsupported syscall dup3');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get(), flags = SYSCALLS.get();
+//     assert(!flags);
+//     if (old.fd === suggestFD) return -ERRNO_CODES.EINVAL;
+//     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
   __syscall331: function(which, varargs) { // pipe2
     return EmterpreterAsync.handle(function(resume) {
@@ -1821,18 +2014,22 @@ var USyscalls = (function () {
     });
   },
   __syscall333: function(which, varargs) { // preadv
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
-    return SYSCALLS.doReadv(stream, iov, iovcnt, offset);
+    console.log('TODO: preadv');
+    abort('unsupported syscall preadv');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
+//     return SYSCALLS.doReadv(stream, iov, iovcnt, offset);
   },
   __syscall334: function(which, varargs) { // pwritev
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
-    return SYSCALLS.doWritev(stream, iov, iovcnt, offset);
+    console.log('TODO: pwritev');
+    abort('unsupported syscall pwritev');
+// #if SYSCALL_DEBUG
+//     Module.printErr('warning: untested syscall');
+// #endif
+//     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
+//     return SYSCALLS.doWritev(stream, iov, iovcnt, offset);
   },
   __syscall340: function(which, varargs) { // prlimit64
     var pid = SYSCALLS.get(), resource = SYSCALLS.get(), new_limit = SYSCALLS.get(), old_limit = SYSCALLS.get();
