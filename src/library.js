@@ -3603,10 +3603,26 @@ LibraryManager.library = {
 
   // pwd.h
 
-  getpwnam: function() { throw 'getpwnam: TODO' },
-  setpwent: function() { throw 'setpwent: TODO' },
-  getpwent: function() { throw 'getpwent: TODO' },
-  endpwent: function() { throw 'endpwent: TODO' },
+  getpwnam__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getpwnam: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  setpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  setpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  getpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  endpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  endpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
 
   // ==========================================================================
   // emscripten.h

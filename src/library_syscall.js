@@ -419,6 +419,11 @@ var USyscalls = (function () {
         this.outstanding[msgId] = cb;
         this.post(msgId, 'close', fd);
     };
+    USyscalls.prototype.llseek = function (fd, offhi, offlo, whence, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'llseek', fd, offhi, offlo, whence);
+    };
     USyscalls.prototype.pwrite = function (fd, buf, pos, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
@@ -724,11 +729,32 @@ var USyscalls = (function () {
     // return -ERRNO_CODES.EMLINK; // no hardlinks for us
   },
   __syscall10: function(which, varargs) { // unlink
-    console.log('TODO: unlink');
-    abort('unsupported syscall unlink');
-    // var path = SYSCALLS.getStr();
-    // FS.unlink(path);
-    // return 0;
+    return EmterpreterAsync.handle(function(resume) {
+
+      var pathname_p = SYSCALLS.get();
+      var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      pathname = h.slice(ptr, ptr+i);
+
+      var done = function(err) {
+        resume(function() {
+          if (err && err.code === 'ENOENT')
+            return -ERRNO_CODES.ENOENT;
+          else
+            return err ? -1 : 0;
+        });
+      };
+      SYSCALLS.browsix.syscall.unlink(pathname, done);
+    });
   },
   __syscall11: function(which, varargs) { // execve
     return EmterpreterAsync.handle(function(resume) {
@@ -1308,15 +1334,20 @@ var USyscalls = (function () {
     // return 0;
   },
   __syscall140: function(which, varargs) { // llseek
-    console.log('TODO: llseek');
-    abort('unsupported system call llseek');
-    // var stream = SYSCALLS.getStreamFromFD(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
-    // var offset = offset_low;
-    // assert(offset_high === 0);
-    // FS.llseek(stream, offset, whence);
-    // {{{ makeSetValue('result', '0', 'stream.position', 'i32') }}};
-    // if (stream.getdents && offset === 0 && whence === {{{ cDefine('SEEK_SET') }}}) stream.getdents = null; // reset readdir state
-    // return 0;
+    return EmterpreterAsync.handle(function(resume) {
+      var fd = SYSCALLS.get(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
+      assert(offset_high === 0);
+
+      var done = function(err, off) {
+        if (!err) {
+          {{{ makeSetValue('result', '0', 'off', 'i32') }}};
+        }
+        resume(function() {
+          return err;
+        });
+      };
+      SYSCALLS.browsix.syscall.llseek(fd, offset_high, offset_low, whence, done);
+    });
   },
   __syscall142: function(which, varargs) { // newselect
     console.log('TODO: newselect');
