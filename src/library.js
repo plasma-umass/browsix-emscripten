@@ -537,16 +537,16 @@ LibraryManager.library = {
     if (!___buildEnvironment.called) {
       ___buildEnvironment.called = true;
       // Set default values. Use string keys for Closure Compiler compatibility.
-      ENV['USER'] = ENV['LOGNAME'] = 'web_user';
-      ENV['PATH'] = '/';
-      ENV['PWD'] = '/';
-      ENV['HOME'] = '/home/web_user';
-      ENV['LANG'] = 'C';
-      ENV['_'] = Module['thisProgram'];
+      // ENV['USER'] = ENV['LOGNAME'] = 'web_user';
+      // ENV['PATH'] = '/';
+      // ENV['PWD'] = '/';
+      // ENV['HOME'] = '/home/web_user';
+      // ENV['LANG'] = 'C';
+      // ENV['_'] = Module['thisProgram'];
       // Allocate memory.
-      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_STATIC);
+      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_NORMAL);
       envPtr = allocate(MAX_ENV_VALUES * {{{ Runtime.QUANTUM_SIZE }}},
-                        'i8*', ALLOC_STATIC);
+                        'i8*', ALLOC_NORMAL);
       {{{ makeSetValue('envPtr', '0', 'poolPtr', 'i8*') }}};
       {{{ makeSetValue(makeGlobalUse('_environ'), 0, 'envPtr', 'i8*') }}};
     } else {
@@ -579,11 +579,6 @@ LibraryManager.library = {
     {{{ makeSetValue('envPtr', 'strings.length * ptrSize', '0', 'i8*') }}};
   },
   $ENV__deps: ['__buildEnvironment'],
-#if USE_PTHREADS
-  $ENV__postset: 'if (!ENVIRONMENT_IS_PTHREAD) ___buildEnvironment(ENV);',
-#else
-  $ENV__postset: '___buildEnvironment(ENV);',
-#endif
   $ENV: {},
   getenv__deps: ['$ENV'],
   getenv: function(name) {
