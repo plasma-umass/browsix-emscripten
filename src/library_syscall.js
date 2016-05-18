@@ -298,8 +298,6 @@ var USyscalls = (function () {
     USyscalls.prototype.wait4 = function (pid, options, cb) {
         var msgId = this.nextMsgId();
         this.outstanding[msgId] = cb;
-        // explicitly NOT transferrable, as we want a copy, not to
-        // invalidate the heap for this (parent) process
         this.post(msgId, 'wait4', pid, options);
     };
     USyscalls.prototype.fork = function (heap, args, cb) {
@@ -308,6 +306,21 @@ var USyscalls = (function () {
         // explicitly NOT transferrable, as we want a copy, not to
         // invalidate the heap for this (parent) process
         this.post(msgId, 'fork', heap, args);
+    };
+    USyscalls.prototype.execve = function (filename, args, env, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'execve', filename, args, env, args);
+    };
+    USyscalls.prototype.dup3 = function (fd1, fd2, opts, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'dup3', filename, fd1, fd2, opts);
+    };
+    USyscalls.prototype.dup = function (fd1, cb) {
+        var msgId = this.nextMsgId();
+        this.outstanding[msgId] = cb;
+        this.post(msgId, 'dup', filename, fd1);
     };
     USyscalls.prototype.kill = function (pid, cb) {
         var msgId = this.nextMsgId();
@@ -757,15 +770,56 @@ var USyscalls = (function () {
     });
   },
   __syscall11: function(which, varargs) { // execve
+    // returns a Uint8Array for the string pointed to by inp
+    function strp(inp) {
+      var ho = [{{{ heapAndOffset('HEAPU8', 'inp') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+        if (t === 0)
+          break;
+        i++;
+      }
+      return h.subarray(ptr, ptr+i);
+    }
+
+    // pulls a null-terimated array of strings out of memory, into an
+    // array of Uint8Arrays.
+    function arrp(inp) {
+      var ho = [{{{ heapAndOffset('HEAPU32', 'inp') }}}];
+      var h = ho[0], ptr = ho[1];
+
+      var arr = []
+      var i = 0;
+      var t;
+      while (true) {
+        t = {{{ makeGetValue('ptr', 'i', 'i32', 0, 1) }}};
+        if (t === 0)
+          break;
+        arr.push(strp(t));
+        i += 4;
+      }
+      return arr;
+    }
+
     return EmterpreterAsync.handle(function(resume) {
-      console.log('TODO: execve');
-      debugger;
+      var filename_p = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
+
+      var filename = strp(filename_p);
+      var args = arrp(argv);
+      var env = arrp(envp);
+
+      // exec can fail if the file is not there, or not executable.
+      // If successful, this syscall won't complete.
       var done = function(err) {
         resume(function() {
           return err;
         });
       };
-      //SYSCALLS.browsix.syscall.execve(done);
+      SYSCALLS.browsix.syscall.execve(filename, args, env, done);
     });
   },
   __syscall12: function(which, varargs) { // chdir
@@ -875,10 +929,16 @@ var USyscalls = (function () {
     // return 0;
   },
   __syscall41: function(which, varargs) { // dup
-    console.log('TODO: dup');
-    abort('unsupported syscall dup');
-    // var old = SYSCALLS.getStreamFromFD();
-    // return FS.open(old.path, old.flags, 0).fd;
+    return EmterpreterAsync.handle(function(resume) {
+      var fd1 = SYSCALLS.get();
+
+      var done = function(result) {
+        resume(function() {
+          return result|0;
+        });
+      };
+      SYSCALLS.browsix.syscall.dup(fd1, done);
+    });
   },
   __syscall42: function(which, varargs) { // pipe
     return EmterpreterAsync.handle(function(resume) {
@@ -925,11 +985,23 @@ var USyscalls = (function () {
     return old;
   },
   __syscall63: function(which, varargs) { // dup2
-    console.log('TODO: umask');
-    abort('unsupported syscall dup2');
-    // var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get();
-    // if (old.fd === suggestFD) return suggestFD;
-    // return SYSCALLS.doDup(old.path, old.flags, suggestFD);
+    return EmterpreterAsync.handle(function(resume) {
+      var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
+
+      if (fd1 === fd2) {
+        resume(function() {
+          return fd1;
+        });
+        return;
+      }
+
+      var done = function(result) {
+        resume(function() {
+          return result|0;
+        });
+      };
+      SYSCALLS.browsix.syscall.dup3(fd1, fd2, 0, done);
+    });
   },
   __syscall64: function(which, varargs) { // getppid
     return EmterpreterAsync.handle(function(resume) {
@@ -1700,8 +1772,10 @@ var USyscalls = (function () {
           HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
         }
         resume(function() {
-          // FIXME: correct this
-          return err ? -1 : 0;
+          if (err && err.code === 'ENOENT')
+            return -ERRNO_CODES.ENOENT;
+          else
+            return err ? -1 : 0;
         });
       };
 
@@ -1729,8 +1803,10 @@ var USyscalls = (function () {
           HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
         }
         resume(function() {
-          // FIXME: correct this
-          return err ? -1 : 0;
+          if (err && err.code === 'ENOENT')
+            return -ERRNO_CODES.ENOENT;
+          else
+            return err ? -1 : 0;
         });
       };
 
@@ -1746,8 +1822,10 @@ var USyscalls = (function () {
           HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
         }
         resume(function() {
-          // FIXME: correct this
-          return err ? -1 : 0;
+          if (err && err.code === 'ENOENT')
+            return -ERRNO_CODES.ENOENT;
+          else
+            return err ? -1 : 0;
         });
       };
 
@@ -1833,10 +1911,80 @@ var USyscalls = (function () {
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
-    console.log('TODO: fcntl64');
-    var stream = SYSCALLS.get(), cmd = SYSCALLS.get();
-    console.log('TODO: fcntl');
-    return 0;
+    return EmterpreterAsync.handle(function(resume) {
+      var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+
+      switch (cmd) {
+      case {{{ cDefine('F_DUPFD') }}}: {
+        var arg = SYSCALLS.get();
+        if (arg < 0) {
+          resume(function() {
+            return -ERRNO_CODES.EINVAL;
+          });
+          return;
+        }
+        console.log('TODO: fcntl(fd, F_DUPDF)');
+        // var newStream;
+        // newStream = FS.open(stream.path, stream.flags, 0, arg);
+        // return newStream.fd;
+      }
+      case {{{ cDefine('F_GETFD') }}}:
+        console.log('TODO: fcntl(fd, F_GETFD)');
+      case {{{ cDefine('F_SETFD') }}}:
+        console.log('TODO: fcntl(fd, F_SETFD)');
+      case {{{ cDefine('F_GETFL') }}}:
+        console.log('TODO: fcntl(fd, F_GETFL)');
+      case {{{ cDefine('F_SETFL') }}}: {
+        console.log('TODO: fcntl(fd, F_SETFL)');
+      }
+      case {{{ cDefine('F_GETLK') }}}:
+      case {{{ cDefine('F_GETLK64') }}}: {
+        var arg = SYSCALLS.get();
+        var offset = {{{ C_STRUCTS.flock.l_type }}};
+        // We're always unlocked.
+        {{{ makeSetValue('arg', 'offset', cDefine('F_UNLCK'), 'i16') }}};
+        resume(function() {
+          return 0;
+        });
+        return
+      }
+      case {{{ cDefine('F_SETLK') }}}:
+      case {{{ cDefine('F_SETLKW') }}}:
+      case {{{ cDefine('F_SETLK64') }}}:
+      case {{{ cDefine('F_SETLKW64') }}}:
+        resume(function() {
+          return 0; // Pretend that the locking is successful.
+        });
+        return;
+      case {{{ cDefine('F_GETOWN_EX') }}}:
+      case {{{ cDefine('F_SETOWN') }}}:
+        console.log('TODO: fcntl(fd, F_SETOWN)');
+        resume(function() {
+          return -ERRNO_CODES.EINVAL; // These are for sockets. We don't have them fully implemented yet.
+        });
+        return;
+      case {{{ cDefine('F_GETOWN') }}}:
+        console.log('TODO: fcntl(fd, F_GETOWN)');
+        resume(function() {
+          // musl trusts getown return values, due to a bug where they must be, as they overlap with errors. just return -1 here, so fnctl() returns that, and we set errno ourselves.
+          ___setErrNo(ERRNO_CODES.EINVAL);
+          return -1;
+        });
+        return;
+      default: {
+        console.log('TODO: unrecognized fctl64 cmd: ' + cmd);
+        resume(function() {
+          return -ERRNO_CODES.EINVAL;
+        });
+        return;
+      }
+      }
+
+      resume(function() {
+        return 0;
+      });
+      // SYSCALLS.browsix.syscall.fcntl(fd1, done);
+    });
   },
   __syscall265: function(which, varargs) { // clock_nanosleep
     console.log('TODO: nanosleep');
@@ -2028,15 +2176,23 @@ var USyscalls = (function () {
     // return 0;
   },
   __syscall330: function(which, varargs) { // dup3
-    console.log('TODO: dup3');
-    abort('unsupported syscall dup3');
-// #if SYSCALL_DEBUG
-//     Module.printErr('warning: untested syscall');
-// #endif
-//     var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get(), flags = SYSCALLS.get();
-//     assert(!flags);
-//     if (old.fd === suggestFD) return -ERRNO_CODES.EINVAL;
-//     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
+    return EmterpreterAsync.handle(function(resume) {
+      var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
+
+      if (fd1 === fd2) {
+        resume(function() {
+          return -ERRNO_CODES.EINVAL;
+        });
+        return;
+      }
+
+      var done = function(result) {
+        resume(function() {
+          return result|0;
+        });
+      };
+      SYSCALLS.browsix.syscall.dup3(fd1, fd2, flags, done);
+    });
   },
   __syscall331: function(which, varargs) { // pipe2
     return EmterpreterAsync.handle(function(resume) {

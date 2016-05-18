@@ -241,10 +241,19 @@ function run(args) {
         exit(0, true);
       });
       Runtime.process.once('ready', function() {
-        ENV = Runtime.process.env;
         Module['thisProgram'] = Runtime.process.argv[0];
+        for (var k in Runtime.process.env) {
+          if (!Runtime.process.env.hasOwnProperty(k))
+            continue;
+          ENV[k] = Runtime.process.env[k];
+        }
+        ENV = Runtime.process.env;
+        ENV['_'] = Runtime.process.argv[0];
+        if (!Runtime.process.pid)
+          ___buildEnvironment(ENV);
 
         if (Runtime.process.pid) {
+
           assert(HEAP32.buffer === Runtime.process.parentBuffer);
           assert(HEAP32[EMTSTACKTOP>>2] === Runtime.process.forkArgs.pc);
 
