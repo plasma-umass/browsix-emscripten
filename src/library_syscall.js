@@ -211,6 +211,9 @@ var SyscallsLibrary = {
     Module['exit'](status);
     return 0;
   },
+  __syscall2: function(which, varargs) { // fork
+    abort('fork not supported without Browsix');
+  },
   __syscall3: function(which, varargs) { // read
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
