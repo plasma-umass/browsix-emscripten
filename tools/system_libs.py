@@ -181,6 +181,11 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
         'rintf.c'
     ]
 
+    # too many things bundle their own
+    blacklist += [
+      'getopt_long.c', 'getopt.c',
+    ]
+
     if shared.Settings.WASM_BACKEND:
       # With the wasm backend these are included in wasm_libc_rt instead
       blacklist += [
@@ -214,6 +219,8 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     # custom standard library. The same for other libc/libm builds.
     args = ['-Os', '-fno-builtin']
     args += threading_flags(libname)
+    # fix sourcemap inlining with Browsix
+    # args += ['-g4']
     return build_libc(libname, libc_files, args)
 
   def create_pthreads(libname):

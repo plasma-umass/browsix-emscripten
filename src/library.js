@@ -142,6 +142,12 @@ LibraryManager.library = {
     return -1;
   },
 
+  getgrgid__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getgrgid: function() {
+    ___setErrNo(ERRNO_CODES.EIO);
+    return 0;
+  },
+
   fpathconf__deps: ['__setErrNo', '$ERRNO_CODES'],
   fpathconf__proxy: 'sync',
   fpathconf__sig: 'iii',
@@ -242,21 +248,14 @@ LibraryManager.library = {
     }
   },
 
-  execl__deps: ['__setErrNo', '$ERRNO_CODES'],
-  execl: function(/* ... */) {
+  fexecve__deps: ['__setErrNo', '$ERRNO_CODES'],
+  fexecve: function(/* ... */) {
     // int execl(const char *path, const char *arg0, ... /*, (char *)0 */);
     // http://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
     // We don't support executing external code.
     ___setErrNo(ERRNO_CODES.ENOEXEC);
     return -1;
   },
-  execle: 'execl',
-  execlp: 'execl',
-  execv: 'execl',
-  execve: 'execl',
-  execvp: 'execl',
-  __execvpe: 'execl',
-  fexecve: 'execl',
 
   _exit: function(status) {
     // void _exit(int status);
@@ -264,17 +263,17 @@ LibraryManager.library = {
     exit(status);
   },
 
-  fork__deps: ['__setErrNo', '$ERRNO_CODES'],
+  fork__deps: ['$SYSCALLS', '__syscall2'],
   fork: function() {
-    // pid_t fork(void);
-    // http://pubs.opengroup.org/onlinepubs/000095399/functions/fork.html
-    // We don't support multiple processes.
+    return ___syscall2();
+  },
+  vfork: 'fork',
+  posix_spawn: function() {
+    // TODO: we should be able to map this to Browsix's spawn(2)
     ___setErrNo(ERRNO_CODES.EAGAIN);
     return -1;
   },
-  vfork: 'fork',
-  posix_spawn: 'fork',
-  posix_spawnp: 'fork',
+  posix_spawnp: 'posix_spawn',
 
   setgroups__deps: ['__setErrNo', '$ERRNO_CODES', 'sysconf'],
   setgroups: function(ngroups, gidset) {
@@ -643,15 +642,18 @@ LibraryManager.library = {
     if (!___buildEnvironment.called) {
       ___buildEnvironment.called = true;
       // Set default values. Use string keys for Closure Compiler compatibility.
-      ENV['USER'] = ENV['LOGNAME'] = 'web_user';
-      ENV['PATH'] = '/';
-      ENV['PWD'] = '/';
-      ENV['HOME'] = '/home/web_user';
-      ENV['LANG'] = 'C.UTF-8';
-      ENV['_'] = Module['thisProgram'];
+      if (!ENVIRONMENT_IS_BROWSIX) {
+        ENV['USER'] = ENV['LOGNAME'] = 'web_user';
+        ENV['PATH'] = '/';
+        ENV['PWD'] = '/';
+        ENV['HOME'] = '/home/web_user';
+        ENV['LANG'] = 'C.UTF-8';
+        ENV['_'] = Module['thisProgram'];
+      }
       // Allocate memory.
-      poolPtr = getMemory(TOTAL_ENV_SIZE);
-      envPtr = getMemory(MAX_ENV_VALUES * {{{ Runtime.POINTER_SIZE }}});
+      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_NORMAL);
+      envPtr = allocate(MAX_ENV_VALUES * {{{ Runtime.POINTER_SIZE }}},
+                        'i8*', ALLOC_NORMAL);
       {{{ makeSetValue('envPtr', '0', 'poolPtr', 'i8*') }}};
       {{{ makeSetValue('environ', 0, 'envPtr', 'i8*') }}};
     } else {
@@ -683,6 +685,7 @@ LibraryManager.library = {
     }
     {{{ makeSetValue('envPtr', 'strings.length * ptrSize', '0', 'i8*') }}};
   },
+  $ENV__deps: ['__buildEnvironment'],
   $ENV: {},
   getenv__deps: ['$ENV'],
   getenv__proxy: 'sync',
@@ -2771,6 +2774,22 @@ LibraryManager.library = {
   // sys/time.h
   // ==========================================================================
 
+  nanosleep__deps: ['usleep'],
+  nanosleep: function(rqtp, rmtp) {
+    // int nanosleep(const struct timespec  *rqtp, struct timespec *rmtp);
+    var seconds = {{{ makeGetValue('rqtp', C_STRUCTS.timespec.tv_sec, 'i32') }}};
+    var nanoseconds = {{{ makeGetValue('rqtp', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
+    if (rmtp !== 0) {
+      {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_sec, '0', 'i32') }}};
+      {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_nsec, '0', 'i32') }}};
+    }
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX)
+      return BROWSIX.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
+#endif
+    return _usleep((seconds * 1e6) + (nanoseconds / 1000));
+  },
+
   clock_gettime__deps: ['emscripten_get_now', 'emscripten_get_now_is_monotonic', '$ERRNO_CODES', '__setErrNo'],
   clock_gettime: function(clk_id, tp) {
     // int clock_gettime(clockid_t clk_id, struct timespec *tp);
@@ -2961,19 +2980,13 @@ LibraryManager.library = {
   // sys/wait.h
   // ==========================================================================
 
-  wait__deps: ['$ERRNO_CODES', '__setErrNo'],
-  wait: function(stat_loc) {
+  waitid: function(stat_loc) {
     // pid_t wait(int *stat_loc);
     // http://pubs.opengroup.org/onlinepubs/009695399/functions/wait.html
     // Makes no sense in a single-process environment.
     ___setErrNo(ERRNO_CODES.ECHILD);
     return -1;
   },
-  // NOTE: These aren't really the same, but we use the same stub for them all.
-  waitid: 'wait',
-  waitpid: 'wait',
-  wait3: 'wait',
-  wait4: 'wait',
 
   // ==========================================================================
   // errno.h
@@ -3988,10 +4001,26 @@ LibraryManager.library = {
 
   // pwd.h
 
-  getpwnam: function() { throw 'getpwnam: TODO' },
-  setpwent: function() { throw 'setpwent: TODO' },
-  getpwent: function() { throw 'getpwent: TODO' },
-  endpwent: function() { throw 'endpwent: TODO' },
+  getpwnam__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getpwnam: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  setpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  setpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  getpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  getpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
+  endpwent__deps: ['__setErrNo', '$ERRNO_CODES'],
+  endpwent: function() {
+    ___setErrNo(ERRNO_CODES.ENOENT);
+    return 0;
+  },
 
   // ==========================================================================
   // emscripten.h

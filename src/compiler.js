@@ -22,6 +22,7 @@ var ENVIRONMENT_IS_WEB = typeof window === 'object';
 var ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
 var ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof require === 'function' && !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_WORKER;
 var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
+var ENVIRONMENT_IS_BROWSIX = false;
 
 if (ENVIRONMENT_IS_NODE) {
   // Expose functionality in the same simple way that the shells work
@@ -204,10 +205,11 @@ ENVIRONMENT_MAY_BE_WEB    = !ENVIRONMENT || ENVIRONMENT === 'web';
 ENVIRONMENT_MAY_BE_WORKER = !ENVIRONMENT || ENVIRONMENT === 'worker';
 ENVIRONMENT_MAY_BE_NODE   = !ENVIRONMENT || ENVIRONMENT === 'node';
 ENVIRONMENT_MAY_BE_SHELL  = !ENVIRONMENT || ENVIRONMENT === 'shell';
+ENVIRONMENT_MAY_BE_BROWSIX = !ENVIRONMENT || ENVIRONMENT === 'browsix';
 
-ENVIRONMENT_MAY_BE_WEB_OR_WORKER = ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER;
+ENVIRONMENT_MAY_BE_WEB_OR_WORKER = ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER || ENVIRONMENT_MAY_BE_BROWSIX;
 
-if (ENVIRONMENT && !(ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER || ENVIRONMENT_MAY_BE_NODE || ENVIRONMENT_MAY_BE_SHELL)) {
+if (ENVIRONMENT && !(ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER || ENVIRONMENT_MAY_BE_NODE || ENVIRONMENT_MAY_BE_SHELL || ENVIRONMENT_MAY_BE_BROWSIX)) {
   throw 'Invalid environment specified in "ENVIRONMENT": ' + ENVIRONMENT + '. Should be one of: web, worker, node, shell.';
 }
 
@@ -261,4 +263,3 @@ try {
 //var M = keys(tokenCacheMisses).map(function(m) { return [m, misses[m]] }).sort(function(a, b) { return a[1] - b[1] });
 //printErr(dump(M.slice(M.length-10)));
 //printErr('hits: ' + hits);
-

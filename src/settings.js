@@ -603,7 +603,7 @@ var NODERAWFS = 0;
 // main() function and want it to run, you must include it in this list (as
 // _main is by default in this value, and if you override it without keeping it
 // there, you are in effect removing it).
-var EXPORTED_FUNCTIONS = ['_main'];
+var EXPORTED_FUNCTIONS = ['_main', '_fflush'];
 
 // If true, we export all the symbols. Note that this does *not* affect LLVM, so
 // it can still eliminate functions as dead. This just exports them on the
@@ -1084,6 +1084,12 @@ var USE_COCOS2D = 0;
 
 // Formats to support in SDL2_image. Valid values: bmp, gif, lbm, pcx, png, pnm, tga, xcf, xpm, xv
 var SDL2_IMAGE_FORMATS = [];
+
+// If true, we assume we are compiling assets to run under Browsix in the browser.
+var BROWSIX = 1;
+
+// The total size of the SharedArrayBuffer shared between the Browsix kernel and process.
+var BROWSIX_SHM_SIZE = 16777216;
 
 // Compiler debugging options
 //

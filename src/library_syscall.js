@@ -8,6 +8,9 @@ var SyscallsLibrary = {
 #if FILESYSTEM
                    '$FS', '$ERRNO_CODES', '$PATH',
 #endif
+#if BROWSIX
+                   '$BROWSIX',
+#endif
 #if SYSCALL_DEBUG
                    '$ERRNO_MESSAGES'
 #endif
@@ -234,6 +237,9 @@ var SyscallsLibrary = {
     var status = SYSCALLS.get();
     exit(status);
     return 0;
+  },
+  __syscall2: function(which, varargs) { // fork
+    abort('fork not supported without Browsix');
   },
   __syscall3: function(which, varargs) { // read
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();

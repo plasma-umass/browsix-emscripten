@@ -1426,6 +1426,12 @@ def create_asm_runtime_funcs():
     funcs += ['setDynamicTop']
   if shared.Settings.ONLY_MY_CODE:
     funcs = []
+  if shared.Settings.EMTERPRETIFY:
+    funcs += ['emterpret']
+    if shared.Settings.EMTERPRETIFY_ASYNC:
+      funcs += ['setAsyncState', 'emtStackSave', 'emtStackRestore']
+      if shared.Settings.BROWSIX:
+        funcs += ['update_heap']
   return funcs
 
 
@@ -1451,8 +1457,24 @@ def create_the_global(metadata):
   return '{ ' + ', '.join(['"' + math_fix(s) + '": ' + s for s in fundamentals]) + ' }'
 
 
+def create_receiving_decls(function_table_data, function_tables_defs, exported_implemented_functions):
+  receiving_decls = '\n'
+  if shared.Settings.ASSERTIONS:
+    receiving_decls = [f for f in exported_implemented_functions if f not in ('_memcpy', '_memset', '_emscripten_replace_memory', '__start_module')]
+    receiving_decls = '\n'.join('var real_' + s + ';' for s in receiving)
+  receiving_decls += '\n'
+
+  receiving_decls += '\n'.join(['var ' + s + ';' for s in exported_implemented_functions + function_tables(function_table_data)])
+  receiving_decls += '\n\n'
+
+  return receiving_decls
+
 def create_receiving(function_table_data, function_tables_defs, exported_implemented_functions):
-  receiving = ''
+  receiving = create_receiving_decls(function_table_data, function_tables_defs, exported_implemented_functions)
+
+  if shared.Settings.BROWSIX:
+    receiving += 'function initReceiving() {\n'
+
   if not shared.Settings.ASSERTIONS:
     runtime_assertions = ''
   else:
@@ -1463,13 +1485,14 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
 '''
     receiving = [f for f in exported_implemented_functions if f not in ('_memcpy', '_memset', '_emscripten_replace_memory', '__start_module')]
-    receiving = '\n'.join('var real_' + s + ' = asm["' + s + '"]; asm["' + s + '''"] = function() {''' + runtime_assertions + '''  return real_''' + s + '''.apply(null, arguments);
+    receiving = '\n'.join('real_' + s + ' = asm["' + s + '"]; asm["' + s + '''"] = function() {''' + runtime_assertions + '''  return real_''' + s + '''.apply(null, arguments);
 };
 ''' for s in receiving)
+
   if not shared.Settings.SWAPPABLE_ASM_MODULE:
-    receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data)])
+    receiving += ';\n'.join([s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data)])
   else:
-    receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data)])
+    receiving += 'Module["asm"] = asm;\n' + ';\n'.join([s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data)])
   receiving += ';\n'
 
   if shared.Settings.EXPORT_FUNCTION_TABLES and not shared.Settings.WASM:
@@ -1492,6 +1515,9 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
         fullname = name if not shared.Settings.SIDE_MODULE else ('SIDE_' + name)
         receiving += 'Module["' + name + '"] = ' + fullname + ';\n'
 
+  if shared.Settings.BROWSIX:
+    receiving += '\n}\n\n'
+    receiving += 'if (!ENVIRONMENT_IS_BROWSIX) {\n  initReceiving();\n}\n'
   return receiving
 
 
@@ -1685,6 +1711,37 @@ function SAFE_FT_MASK(value, mask) {
   return funcs
 
 
+def browsix_shim():
+  if not shared.Settings.BROWSIX:
+    return ''
+
+  return '''
+if (ENVIRONMENT_IS_BROWSIX) {
+  var key;
+  var name;
+  var m;
+  minMapping = {};
+  for (key in Module.asmLibraryArg) {
+    name = Module.asmLibraryArg[key].name;
+    m = /^___syscall(\d+)$/.exec(name);
+    if (!m)
+      continue;
+    minMapping[name] = key;
+  }
+  for (key in BROWSIX.browsix) {
+    m = /^__syscall(\d+)$/.exec(key);
+    if (!m)
+      continue;
+    name = minMapping['_' + key];
+    if (name !== undefined) {
+      this['_' + key] = BROWSIX.browsix[key];
+      Module.asmLibraryArg[name] = BROWSIX.browsix[key];
+    }
+  }
+}
+'''
+
+
 def create_asm_start_pre(asm_setup, the_global, sending, metadata):
   shared_array_buffer = ''
   if shared.Settings.USE_PTHREADS and not shared.Settings.WASM:
@@ -1694,8 +1751,16 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata):
   module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
   module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
 
+  shim_browsix = browsix_shim()
+
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {')
+
+  if shared.Settings.BROWSIX:
+    asm_function_top = ('var asm = /** @suppress {uselessCode} */ undefined;\n'
+                        '// EMSCRIPTEN_START_ASM\n'
+                        'var asmModule = (/** @suppress {uselessCode} */ function(global, env, buffer) {')
+
 
   use_asm = "'almost asm';"
   if shared.Settings.ASM_JS == 1:
@@ -1706,6 +1771,7 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata):
     module_global,
     shared_array_buffer,
     module_library,
+    shim_browsix,
     asm_function_top,
     use_asm,
     create_first_in_asm(),
@@ -1760,13 +1826,21 @@ function _emscripten_replace_memory(newBuffer) {
 
 
 def create_asm_end(exports):
-  return '''
+  end = '''
 
   return %s;
 })
 // EMSCRIPTEN_END_ASM
-(Module%s, Module%s, buffer);
-''' % (exports, access_quote('asmGlobalArg'), access_quote('asmLibraryArg'))
+''' % (exports,)
+  if not shared.Settings.BROWSIX:
+    end += '(Module%s, Module%s, buffer);\n' % (access_quote('asmGlobalArg'), access_quote('asmLibraryArg'))
+  else:
+    end += '''\nif (!ENVIRONMENT_IS_BROWSIX) {
+  asm = asmModule(%s, %s, buffer);
+}''' % ('Module' + access_quote('asmGlobalArg'),
+        'Module' + access_quote('asmLibraryArg'))
+
+  return end
 
 
 def create_first_in_asm():
@@ -2139,6 +2213,7 @@ def create_module_wasm(sending, receiving, invoke_funcs, jscall_sigs,
 
   module.append("Module['wasmTableSize'] = %s;\n" % metadata['tableSize'])
   module.append('Module%s = %s;\n' % (access_quote('asmLibraryArg'), sending))
+  module.append(browsix_shim())
   module.append("var asm = Module['asm'](Module%s, Module%s, buffer);\n" % (access_quote('asmGlobalArg'), access_quote('asmLibraryArg')))
 
   module.append(receiving)

@@ -27,6 +27,7 @@ emcc can be influenced by a few environment variables:
 
 from __future__ import print_function
 
+import base64
 import json
 import logging
 import os
@@ -120,6 +121,17 @@ EMCC_CFLAGS = os.environ.get('EMCC_CFLAGS')
 
 # Target options
 final = None
+
+
+def slurp(fname):
+  with open(fname, 'r') as f:
+    return f.read()
+
+
+def wasm_to_uint8array(fname):
+  wasm_bytes = slurp(fname)
+  bytes_str = ', '.join([str(ord(c)) for c in wasm_bytes])
+  return "Module['wasmBinary'] = Uint8Array.from([%s]);" % (bytes_str,)
 
 
 class Intermediate(object):
@@ -660,6 +672,10 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
   if '.' in target:
     final_suffix = target.split('.')[-1]
+  elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
+    final_suffix = 'wasm'
+  elif shared.Settings.BROWSIX:
+    final_suffix = 'js'
   else:
     final_suffix = ''
 
@@ -766,7 +782,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       options.llvm_opts = ['-O%d' % options.llvm_opts]
 
     if options.memory_init_file is None:
-      options.memory_init_file = options.opt_level >= 2
+      options.memory_init_file = options.opt_level >= 2 and not shared.Settings.BROWSIX
 
     # TODO: support source maps with js_transform
     if options.js_transform and use_source_map(options):
@@ -914,6 +930,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     # target is now finalized, can finalize other _target s
     js_target = unsuffixed(target) + '.js'
+    if shared.Settings.BROWSIX and (js_target == '.js' or js_target == '.wasm'):
+      js_target = target
 
     asm_target = unsuffixed(js_target) + '.asm.js' # might not be used, but if it is, this is the name
     wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
@@ -2081,6 +2099,23 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # The JS is now final. Move it to its final location
       shutil.move(final, js_target)
 
+      if shared.Settings.BROWSIX:
+        if final_suffix in EXECUTABLE_SUFFIXES and target != js_target:
+          with open(target, 'w') as f:
+            f.write('''#!/bin/sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+node $DIR/%s
+''' % js_target)
+          import stat
+          try:
+            # make targets executable
+            os.chmod(target, stat.S_IMODE(os.stat(target).st_mode) | stat.S_IXUSR)
+            os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR)
+          except Exception as e:
+            pass # can fail if e.g. writing the executable to /dev/null
+
+
       generated_text_files_with_native_eols += [js_target]
 
       # If we were asked to also generate HTML, do that
@@ -2444,11 +2479,21 @@ def emterpretify(js_target, optimizer, options):
 
 def emit_js_source_maps(target, js_transform_tempfiles):
   logger.debug('generating source maps')
+  args = ['--sourceRoot', os.getcwd(),
+        '--mapFileBaseName', target,
+        '--offset', '0']
+  if shared.Settings.BROWSIX:
+    args += ['--noMappingURL', '1']
   jsrun.run_js_tool(shared.path_from_root('tools', 'source-maps', 'sourcemapper.js'),
-                    shared.NODE_JS, js_transform_tempfiles +
-                    ['--sourceRoot', os.getcwd(),
-                     '--mapFileBaseName', target,
-                     '--offset', '0'])
+                    shared.NODE_JS, js_transform_tempfiles + args)
+  if shared.Settings.BROWSIX:
+    source_map = open(target + '.map').read()
+    encoded_source_map = base64.b64encode(source_map)
+    assert len(js_transform_tempfiles) == 1
+    with open(js_transform_tempfiles[0], 'ab') as f:
+      f.write('\n\n//# sourceMappingURL=data:application/json;base64,')
+      f.write(encoded_source_map)
+      f.write('\n')
 
 
 def separate_asm_js(final, asm_target):

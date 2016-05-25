@@ -158,7 +158,7 @@ var calledMain = false;
 
 dependenciesFulfilled = function runCaller() {
   // If run has never been called, and we should call run (INVOKE_RUN is true, and Module.noInitialRun is not false)
-  if (!Module['calledRun']) run();
+  if (!Module['calledRun']) run(Module['arguments']);
   if (!Module['calledRun']) dependenciesFulfilled = runCaller; // try this again later, after new deps are fulfilled
 }
 
@@ -206,8 +206,17 @@ Module['callMain'] = function callMain(args) {
     // if we are saving the stack, then do not call exit, we are not
     // really exiting now, just unwinding the JS stack
     if (typeof EmterpreterAsync === 'object' && EmterpreterAsync.state !== 1) {
+#if BROWSIX
+      if (ENVIRONMENT_IS_BROWSIX) {
+        if (EmterpreterAsync.state !== 1) {
+          exit(ret, /* implicit = */ true);
+        }
+      } else {
+        exit(ret, /* implicit = */ true);
+      }
+#endif
 #endif // EMTERPRETIFY_ASYNC
-    // if we're not running an evented main loop, it's time to exit
+      // if we're not running an evented main loop, it's time to exit
       exit(ret, /* implicit = */ true);
 #if EMTERPRETIFY_ASYNC
     }
@@ -365,6 +374,24 @@ function exit(status, implicit) {
 #endif // EXIT_RUNTIME
 #endif // ASSERTIONS
 
+#if BROWSIX
+  // we don't care about noExitRuntime for explicit exit calls in Browsix()
+  if (ENVIRONMENT_IS_BROWSIX) {
+    EXITSTATUS = status;
+    Runtime.process.exit(status);
+    var ua = navigator.appVersion;
+    if (ua.includes('Safari/') && !ua.includes('Chrom')) {
+      // WebKit doesn't like ExitStatus being thrown, but this
+      // infinite loop severly hurts perf on non-webkit browsers.
+      for (;;) {}
+    } else {
+      // this will terminate the worker's execution as an uncaught
+      // Exception, which is what we want.
+      throw new ExitStatus(status);
+    }
+  }
+#endif
+
   // if this is just main exit-ing implicitly, and the status is 0, then we
   // don't need to do anything here and can just leave. if the status is
   // non-zero, though, then we need to report it.
@@ -462,11 +489,38 @@ if (!ENVIRONMENT_IS_PTHREAD) // EXIT_RUNTIME=0 only applies to default behavior 
   Module["noExitRuntime"] = true;
 #endif
 
+#if BROWSIX
+if (ENVIRONMENT_IS_BROWSIX) {
+  self.onmessage = BROWSIX.browsix.syscall.resultHandler.bind(BROWSIX.browsix.syscall);
+  Runtime.process.once('ready', function() {
+    Module['calledRun'] = false;
+    Module['thisProgram'] = Runtime.process.argv[0];
+    for (var k in Runtime.process.env) {
+      if (!Runtime.process.env.hasOwnProperty(k))
+        continue;
+      ENV[k] = Runtime.process.env[k];
+    }
+    ENV = Runtime.process.env;
+    ENV['_'] = Runtime.process.argv[0];
+
+    if (Runtime.process.pid) {
+      abort('TODO: sync post-fork?');
+    } else {
+      var args = Runtime.process.argv.slice(2);
+      Module['arguments'] = args;
+      setTimeout(run, 0, args);
+    }
+  });
+} else if (typeof ENVIRONMENT_IS_PTHREAD === 'undefined' || !ENVIRONMENT_IS_PTHREAD) {
+  run();
+}
+#else
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD) run();
 #else
 run();
-#endif
+#endif // USE_PTHREADS
+#endif // BROWSIX
 
 #if BUILD_AS_WORKER
 

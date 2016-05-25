@@ -31,12 +31,14 @@ extern "C" {
 #endif
 
 long __syscall1(int which, ...);
+long __syscall2(int which, ...);
 long __syscall3(int which, ...);
 long __syscall4(int which, ...);
 long __syscall5(int which, ...);
 long __syscall6(int which, ...);
 long __syscall9(int which, ...);
 long __syscall10(int which, ...);
+long __syscall11(int which, ...);
 long __syscall12(int which, ...);
 long __syscall14(int which, ...);
 long __syscall15(int which, ...);
@@ -88,6 +90,8 @@ long __syscall152(int which, ...);
 long __syscall153(int which, ...);
 long __syscall163(int which, ...);
 long __syscall168(int which, ...);
+long __syscall174(int which, ...);
+long __syscall175(int which, ...);
 long __syscall178(int which, ...);
 long __syscall180(int which, ...);
 long __syscall181(int which, ...);
