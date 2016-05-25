@@ -337,6 +337,29 @@ Module["noExitRuntime"] = true;
 #endif
 
 #if BROWSIX
+if (ENVIRONMENT_IS_BROWSIX) {
+  Runtime.process.once('ready', function() {
+    Module['thisProgram'] = Runtime.process.argv[0];
+    for (var k in Runtime.process.env) {
+      if (!Runtime.process.env.hasOwnProperty(k))
+        continue;
+      ENV[k] = Runtime.process.env[k];
+    }
+    ENV = Runtime.process.env;
+    ENV['_'] = Runtime.process.argv[0];
+
+    if (Runtime.process.pid) {
+      abort('TODO: sync post-fork?');
+    } else {
+      ___buildEnvironment(ENV);
+      console.log('Browsix run()');
+      run(Runtime.process.argv.slice(2));
+    }
+  });
+}
+#endif
+
+#if BROWSIX
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD && !ENVIRONMENT_IS_BROWSIX) run();
 #else
