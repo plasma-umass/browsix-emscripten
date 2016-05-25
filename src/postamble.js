@@ -270,8 +270,10 @@ function exit(status, implicit) {
     if (Module['onExit']) Module['onExit'](status);
   }
 
-  if (ENVIRONMENT_IS_NODE || ENVIRONMENT_IS_BROWSIX) {
+  if (ENVIRONMENT_IS_NODE) {
     process['exit'](status);
+  } else if (ENVIRONMENT_IS_BROWSIX) {
+    Runtime.process.exit(status);
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
   }
@@ -338,6 +340,7 @@ Module["noExitRuntime"] = true;
 
 #if BROWSIX
 if (ENVIRONMENT_IS_BROWSIX) {
+  self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
   Runtime.process.once('ready', function() {
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {
@@ -352,6 +355,7 @@ if (ENVIRONMENT_IS_BROWSIX) {
       abort('TODO: sync post-fork?');
     } else {
       ___buildEnvironment(ENV);
+      staticSealed = true;
       console.log('Browsix run()');
       run(Runtime.process.argv.slice(2));
     }

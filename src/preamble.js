@@ -71,7 +71,7 @@ var Process = (function (_super) {
     Process.prototype.exit = function (code) {
         //Module['noExitRuntime'] = false;
         if (code === void 0) { code = 0; }
-        this.syscall.exit(code);
+        SYSCALLS.browsix.syscall.exit(code);
     };
     return Process;
 })(OnceEmitter);

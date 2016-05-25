@@ -6,6 +6,7 @@ var SyscallsLibrary = {
 #if SYSCALL_DEBUG
                    '$ERRNO_MESSAGES'
 #endif
+                   '$ENV',
   ],
   $SYSCALLS: {
 #if NO_FILESYSTEM == 0
@@ -203,7 +204,162 @@ var SyscallsLibrary = {
     },
     getZero: function() {
       assert(SYSCALLS.get() === 0);
-    }
+    },
+#if BROWSIX
+    browsix: (function() {
+      var exports = {};
+
+      var SyscallResponse = (function () {
+        function SyscallResponse(id, name, args) {
+          this.id = id;
+          this.name = name;
+          this.args = args;
+        };
+        return SyscallResponse;
+      })();
+      exports.SyscallResponseFrom = function (ev) {
+        var requiredOnData = ['id', 'name', 'args'];
+        if (!ev.data)
+          return;
+        for (var i = 0; i < requiredOnData.length; i++) {
+          if (!ev.data.hasOwnProperty(requiredOnData[i]))
+            return;
+        }
+        var args = ev.data.args; //.map(convertApiErrors);
+        return {id: ev.data.id, name: ev.data.name, args: args};
+      };
+
+      var USyscalls = (function () {
+        function USyscalls(port) {
+          this.async = true;
+          this.msgIdSeq = 1;
+          this.outstanding = {};
+          this.signalHandlers = {};
+        }
+        USyscalls.prototype.syscallAsync = function (cb, name, args, transferrables) {
+          var msgId = this.nextMsgId();
+          this.outstanding[msgId] = cb;
+          self.postMessage({
+            id: msgId,
+            name: name,
+            args: args,
+          }, transferrables);
+        };
+        USyscalls.prototype.syscallSync = function (trap, a1, a2, a3, a4, a5, a6) {
+          syncMsg.trap = trap;
+          syncMsg.args[0] = a1;
+          syncMsg.args[1] = a2;
+          syncMsg.args[2] = a3;
+          syncMsg.args[3] = a4;
+          syncMsg.args[4] = a5;
+          syncMsg.args[5] = a6;
+          self.postMessage(syncMsg);
+          console.log('waiting (' + (waitOff >> 2) + ')');
+          var r = Atomics.wait(heap32, waitOff >> 2, 0);
+          Atomics.store(heap32, waitOff >> 2, 0);
+          console.log('returned from wait: ' + r);
+          return Atomics.load(heap32, (waitOff >> 2) + 1);
+        };
+        USyscalls.prototype.exit = function(code) {
+          if (this.async) {
+            this.syscallAsync(null, 'exit', [code]);
+            while (true) {}
+          } else {
+            this.syscallSync(SYS_EXIT_GROUP, 0, 0, 0, 0, 0, 0);
+          }
+        }
+        USyscalls.prototype.addEventListener = function (type, handler) {
+          if (!handler)
+            return;
+          if (this.signalHandlers[type])
+            this.signalHandlers[type].push(handler);
+          else
+            this.signalHandlers[type] = [handler];
+        };
+        USyscalls.prototype.resultHandler = function (ev) {
+          var response = SYSCALLS.browsix.SyscallResponseFrom(ev);
+          if (!response) {
+            console.log('bad usyscall message, dropping');
+            console.log(ev);
+            return;
+          }
+          if (response.name) {
+            var handlers = this.signalHandlers[response.name];
+            if (handlers) {
+              for (var i = 0; i < handlers.length; i++)
+                handlers[i](response);
+            }
+            else {
+              console.log('unhandled signal ' + response.name);
+            }
+            return;
+          }
+          this.complete(response.id, response.args);
+        };
+        USyscalls.prototype.complete = function (id, args) {
+          var cb = this.outstanding[id];
+          delete this.outstanding[id];
+          if (cb) {
+            cb.apply(undefined, args);
+          }
+          else {
+            console.log('unknown callback for msg ' + id + ' - ' + args);
+          }
+        };
+        USyscalls.prototype.nextMsgId = function () {
+          return ++this.msgIdSeq;
+        };
+        return USyscalls;
+      })();
+
+      var syscall = new USyscalls();
+      exports.syscall = syscall;
+
+      var cb = function(data) {
+        // 0: args
+        // 1: environ
+        // 2: debug flag
+        // 3: pid (if fork)
+        // 4: heap (if fork)
+        // 5: fork args (if fork)
+
+        var args = data.args[0];
+        var environ = data.args[1];
+        // args[4] is a copy of the heap - replace anything we just
+        // alloc'd with it.
+        if (data.args[4]) {
+          var pid = data.args[3];
+          var heap = data.args[4];
+          var forkArgs = data.args[5];
+
+          Runtime.process.parentBuffer = heap;
+          Runtime.process.pid = pid;
+          Runtime.process.forkArgs = forkArgs;
+
+          updateGlobalBuffer(Runtime.process.parentBuffer);
+          updateGlobalBufferViews();
+
+          assert(HEAP32.buffer === Runtime.process.parentBuffer);
+
+          asm.stackRestore(forkArgs.stackSave);
+          asm.emtStackRestore(forkArgs.emtStackTop);
+        }
+
+        args = [args[0]].concat(args);
+
+        Runtime.process.argv = args;
+        Runtime.process.env = environ;
+
+        setTimeout(function () {
+          Runtime.process.emit('ready');
+        }, 0);
+      };
+
+      syscall.addEventListener('init', cb);
+
+      return exports;
+    }()),
+#endif // BROWSIX
   },
 
   __syscall1: function(which, varargs) { // exit
