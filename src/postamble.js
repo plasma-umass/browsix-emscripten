@@ -270,7 +270,7 @@ function exit(status, implicit) {
     if (Module['onExit']) Module['onExit'](status);
   }
 
-  if (ENVIRONMENT_IS_NODE) {
+  if (ENVIRONMENT_IS_NODE || ENVIRONMENT_IS_BROWSIX) {
     process['exit'](status);
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
@@ -336,11 +336,19 @@ if (Module['noInitialRun']) {
 Module["noExitRuntime"] = true;
 #endif
 
+#if BROWSIX
+#if USE_PTHREADS
+if (!ENVIRONMENT_IS_PTHREAD && !ENVIRONMENT_IS_BROWSIX) run();
+#else
+if (!ENVIRONMENT_IS_BROWSIX) run();
+#endif
+#else // BROWSIX
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD) run();
 #else
 run();
 #endif
+#endif // BROWSIX
 
 // {{POST_RUN_ADDITIONS}}
 
