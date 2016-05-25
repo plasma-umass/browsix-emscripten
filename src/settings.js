@@ -688,6 +688,8 @@ var ORIGINAL_EXPORTED_FUNCTIONS = [];
 
 var IN_TEST_HARNESS = 0; // If true, the current build is performed for the Emscripten test harness.
 
+var BROWSIX = 1; // If true, we assume that running in a Web Worker means we're running under Browsix.
+
 var USE_PTHREADS = 0; // If true, enables support for pthreads.
 
 var PTHREAD_POOL_SIZE = 0; // Specifies the number of web workers that are preallocated before runtime is initialized. If 0, workers are created on demand.
