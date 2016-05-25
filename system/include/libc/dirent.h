@@ -19,7 +19,9 @@ typedef struct __dirstream DIR;
 
 struct dirent {
 	ino_t d_ino;
+	ino_t __d_ino_pad;
 	off_t d_off;
+	off_t __d_off_pad;
 	unsigned short d_reclen;
 	unsigned char d_type;
 	char d_name[256];
