@@ -354,6 +354,7 @@ if (ENVIRONMENT_IS_BROWSIX) {
     if (Runtime.process.pid) {
       abort('TODO: sync post-fork?');
     } else {
+      staticSealed = false;
       ___buildEnvironment(ENV);
       staticSealed = true;
       run(Runtime.process.argv.slice(2));

@@ -383,7 +383,7 @@ function JSify(data, functionsOnly) {
     if (!BUILD_AS_SHARED_LIB && !SIDE_MODULE) {
       print('STACK_BASE = STACKTOP = Runtime.alignMemory(STATICTOP);\n');
       if (BROWSIX)
-        print('if (!ENVIRONMENT_IS_BROWSIX) staticSealed = true; // seal the static portion of memory\n');
+        print('if (!ENVIRONMENT_IS_BROWSIX || true) staticSealed = true; // seal the static portion of memory\n');
       else
         print('staticSealed = true; // seal the static portion of memory\n');
       print('STACK_MAX = STACK_BASE + TOTAL_STACK;\n');
