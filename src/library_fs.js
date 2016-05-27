@@ -1352,6 +1352,13 @@ mergeInto(LibraryManager.library, {
       });
     },
     staticInit: function() {
+#if BROWSIX
+      if (ENVIRONMENT_IS_BROWSIX) {
+        Module["noFSInit"] = true;
+        return;
+      }
+#endif
+
       FS.ensureErrnoError();
 
       FS.nameTable = new Array(4096);
