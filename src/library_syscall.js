@@ -209,6 +209,7 @@ var SyscallsLibrary = {
     browsix: (function() {
       var exports = {};
 
+      exports.async = true;
       exports.waitOff = -1;
       exports.syncMsg = {
         trap: 0|0,
@@ -237,7 +238,6 @@ var SyscallsLibrary = {
 
       var USyscalls = (function () {
         function USyscalls(port) {
-          this.async = true;
           this.msgIdSeq = 1;
           this.outstanding = {};
           this.signalHandlers = {};
@@ -272,11 +272,11 @@ var SyscallsLibrary = {
           return Atomics.load(HEAP32, (waitOff >> 2) + 1);
         };
         USyscalls.prototype.exit = function(code) {
-          if (this.async) {
+          if (SYSCALLS.browsix.async) {
             this.syscallAsync(null, 'exit', [code]);
             while (true) {}
           } else {
-            this.sync(SYS_EXIT_GROUP, 0);
+            this.sync(252 /* SYS_exit_group */, 0);
           }
         }
         USyscalls.prototype.addEventListener = function (type, handler) {
@@ -390,6 +390,7 @@ var SyscallsLibrary = {
             console.log('personality: ' + err);
             return;
           }
+          SYSCALLS.browsix.async = false;
           setTimeout(function () { Runtime.process.emit('ready'); }, 0);
         }
       }
@@ -410,13 +411,20 @@ var SyscallsLibrary = {
     abort('fork not supported without Browsix');
   },
   __syscall3: function(which, varargs) { // read
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_READ = 3;
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_READ, fd, buf, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
   __syscall4: function(which, varargs) { // write
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
-      var SYS_WRITE = 1;
+      var SYS_WRITE = 4;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
     }
@@ -954,6 +962,24 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall145: function(which, varargs) { // readv
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_READ = 3;
+      var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+      var ret = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        if (len === 0)
+          continue;
+        var read = SYSCALLS.browsix.syscall.sync(SYS_READ, fd, ptr, len);
+        if (read < 0)
+          return ret === 0 ? read : ret;
+        ret += read;
+      }
+      return ret;
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
     return SYSCALLS.doReadv(stream, iov, iovcnt);
   },
@@ -963,7 +989,7 @@ var SyscallsLibrary = {
   __syscall146: function(which, varargs) { // writev
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
-      var SYS_WRITE = 1;
+      var SYS_WRITE = 4;
       var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
       var ret = 0;
       for (var i = 0; i < iovcnt; i++) {
