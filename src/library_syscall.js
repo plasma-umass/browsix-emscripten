@@ -209,6 +209,12 @@ var SyscallsLibrary = {
     browsix: (function() {
       var exports = {};
 
+      exports.waitOff = -1;
+      exports.syncMsg = {
+        trap: 0|0,
+        args: [0|0, 0|0, 0|0, 0|0, 0|0, 0|0],
+      };
+
       var SyscallResponse = (function () {
         function SyscallResponse(id, name, args) {
           this.id = id;
@@ -245,27 +251,32 @@ var SyscallsLibrary = {
             args: args,
           }, transferrables);
         };
-        USyscalls.prototype.syscallSync = function (trap, a1, a2, a3, a4, a5, a6) {
-          syncMsg.trap = trap;
-          syncMsg.args[0] = a1;
-          syncMsg.args[1] = a2;
-          syncMsg.args[2] = a3;
-          syncMsg.args[3] = a4;
-          syncMsg.args[4] = a5;
-          syncMsg.args[5] = a6;
+        USyscalls.prototype.sync = function (trap, a1, a2, a3, a4, a5, a6) {
+          var waitOff = SYSCALLS.browsix.waitOff;
+          var syncMsg = SYSCALLS.browsix.syncMsg;
+          syncMsg.trap = trap|0;
+          syncMsg.args[0] = a1|0;
+          syncMsg.args[1] = a2|0;
+          syncMsg.args[2] = a3|0;
+          syncMsg.args[3] = a4|0;
+          syncMsg.args[4] = a5|0;
+          syncMsg.args[5] = a6|0;
           self.postMessage(syncMsg);
-          console.log('waiting (' + (waitOff >> 2) + ')');
-          var r = Atomics.wait(heap32, waitOff >> 2, 0);
-          Atomics.store(heap32, waitOff >> 2, 0);
-          console.log('returned from wait: ' + r);
-          return Atomics.load(heap32, (waitOff >> 2) + 1);
+          var paranoid = Atomics.load(HEAP32, waitOff >> 2);
+          if (paranoid) {
+            Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
+          }
+          Atomics.store(HEAP32, waitOff >> 2, 0);
+          Atomics.wait(HEAP32, waitOff >> 2, 0);
+          Atomics.store(HEAP32, waitOff >> 2, 0);
+          return Atomics.load(HEAP32, (waitOff >> 2) + 1);
         };
         USyscalls.prototype.exit = function(code) {
           if (this.async) {
             this.syscallAsync(null, 'exit', [code]);
             while (true) {}
           } else {
-            this.syscallSync(SYS_EXIT_GROUP, 0, 0, 0, 0, 0, 0);
+            this.sync(SYS_EXIT_GROUP, 0);
           }
         }
         USyscalls.prototype.addEventListener = function (type, handler) {
@@ -315,7 +326,7 @@ var SyscallsLibrary = {
       var syscall = new USyscalls();
       exports.syscall = syscall;
 
-      var cb = function(data) {
+      function init1(data) {
         // 0: args
         // 1: environ
         // 2: debug flag
@@ -350,12 +361,40 @@ var SyscallsLibrary = {
         Runtime.process.argv = args;
         Runtime.process.env = environ;
 
-        setTimeout(function () {
-          Runtime.process.emit('ready');
-        }, 0);
-      };
+        if (typeof SharedArrayBuffer !== 'function') {
+          console.log('Embrowsix: shared array buffers required');
+          SYSCALLS.browsix.syscall.exit(-1);
+          return;
+        }
 
-      syscall.addEventListener('init', cb);
+        var oldHEAP8 = HEAP8;
+        var ret = new SharedArrayBuffer(TOTAL_MEMORY);
+        var temp = new Int8Array(ret);
+        temp.set(oldHEAP8);
+        _emscripten_replace_memory(ret);
+        updateGlobalBuffer(ret);
+        updateGlobalBufferViews();
+
+        var PER_BLOCKING = 0x80;
+        // it seems malloc overflows into our static allocation, so
+        // just reserve that, throw it away, and never use it.  The
+        // first number is in bytes, no matter what the 'i*' specifier
+        // is :\
+        allocate(32, 'i8', ALLOC_STATIC);
+        var waitOff = allocate(32, 'i8', ALLOC_STATIC);
+        SYSCALLS.browsix.waitOff = waitOff;
+        SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                              [PER_BLOCKING, buffer, waitOff], [buffer]);
+        function personalityChanged(err) {
+          if (err) {
+            console.log('personality: ' + err);
+            return;
+          }
+          setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+        }
+      }
+
+      syscall.addEventListener('init', init1);
 
       return exports;
     }()),
@@ -375,6 +414,13 @@ var SyscallsLibrary = {
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
   __syscall4: function(which, varargs) { // write
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_WRITE = 1;
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
@@ -915,6 +961,24 @@ var SyscallsLibrary = {
   __syscall146__postset: '/* flush anything remaining in the buffer during shutdown */ __ATEXIT__.push(function() { var fflush = Module["_fflush"]; if (fflush) fflush(0); var printChar = ___syscall146.printChar; if (!printChar) return; var buffers = ___syscall146.buffers; if (buffers[1].length) printChar(1, {{{ charCode("\n") }}}); if (buffers[2].length) printChar(2, {{{ charCode("\n") }}}); });',
 #endif
   __syscall146: function(which, varargs) { // writev
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_WRITE = 1;
+      var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+      var ret = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        if (len === 0)
+          continue;
+        var written = SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
+        if (written < 0)
+          return ret === 0 ? written : ret;
+        ret += written;
+      }
+      return ret;
+    }
+#endif
 #if NO_FILESYSTEM == 0
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
     return SYSCALLS.doWritev(stream, iov, iovcnt);

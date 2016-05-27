@@ -64,7 +64,7 @@ var ABORTING_MALLOC = 1; // If 1, then when malloc would fail we abort(). This i
                          // how big that initial allocation (TOTAL_MEMORY) must be.
                          // If you set this to 0, then you get the standard malloc behavior of
                          // returning NULL (0) when it fails.
-var ALLOW_MEMORY_GROWTH = 0; // If false, we abort with an error if we try to allocate more memory than
+var ALLOW_MEMORY_GROWTH = 1; // If false, we abort with an error if we try to allocate more memory than
                              // we can (TOTAL_MEMORY). If true, we will grow the memory arrays at
                              // runtime, seamlessly and dynamically. This has a performance cost though,
                              // both during the actual growth and in general (the latter is because in

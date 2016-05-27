@@ -356,7 +356,6 @@ if (ENVIRONMENT_IS_BROWSIX) {
     } else {
       ___buildEnvironment(ENV);
       staticSealed = true;
-      console.log('Browsix run()');
       run(Runtime.process.argv.slice(2));
     }
   });
@@ -367,7 +366,16 @@ if (ENVIRONMENT_IS_BROWSIX) {
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD && !ENVIRONMENT_IS_BROWSIX) run();
 #else
-if (!ENVIRONMENT_IS_BROWSIX) run();
+if (!ENVIRONMENT_IS_BROWSIX) {
+  var oldHEAP8 = HEAP8;
+  ret = new ArrayBuffer(TOTAL_MEMORY);
+  var temp = new Int8Array(ret);
+  temp.set(oldHEAP8);
+  _emscripten_replace_memory(ret);
+  updateGlobalBuffer(ret);
+  updateGlobalBufferViews();
+  run();
+}
 #endif
 #else // BROWSIX
 #if USE_PTHREADS

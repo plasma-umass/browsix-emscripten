@@ -76,8 +76,13 @@ var Process = (function (_super) {
     return Process;
 })(OnceEmitter);
 
-if (ENVIRONMENT_IS_BROWSIX)
+if (ENVIRONMENT_IS_BROWSIX) {
   Runtime['process'] = Runtime.process = new Process(null, null);
+  if (typeof Atomics !== 'undefined' && !Atomics.wait && Atomics.futexWait)
+    Atomics.wait = Atomics.futexWait;
+  if (typeof Atomics !== 'undefined' && !Atomics.wake && Atomics.futexWake)
+    Atomics.wake = Atomics.futexWake;
+}
 #endif
 
 #if BENCHMARK
@@ -1089,13 +1094,7 @@ function enlargeMemory() {
 }
 
 #if ALLOW_MEMORY_GROWTH
-var byteLength;
-try {
-  byteLength = Function.prototype.call.bind(Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get);
-  byteLength(new ArrayBuffer(4)); // can fail on older ie
-} catch(e) { // can fail on older node/v8
-  byteLength = function(buffer) { return buffer.byteLength; };
-}
+var byteLength = function(buffer) { return buffer.byteLength; };
 #endif
 
 var TOTAL_STACK = Module['TOTAL_STACK'] || {{{ TOTAL_STACK }}};
