@@ -1001,6 +1001,7 @@ function abortOnCannotGrowMemory() {
 }
 #else // ALLOW_MEMORY_GROWTH
 if (!Module['reallocBuffer']) Module['reallocBuffer'] = function(size) {
+  abort('Will not enlarge memory arrays');
   var ret;
   try {
     if (ArrayBuffer.transfer) {
