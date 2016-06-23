@@ -6,6 +6,18 @@ import jsrun, cache, tempfiles
 import response_file
 import logging, platform, multiprocessing
 
+import json
+
+class SetEncoder(json.JSONEncoder):
+   def default(self, obj):
+      if isinstance(obj, set):
+         return list(obj)
+      return json.JSONEncoder.default(self, obj)
+
+def dumps(obj):
+  return json.dumps(obj, cls=SetEncoder, sort_keys=True, indent=4)
+
+
 # Temp file utilities
 from tempfiles import try_delete
 
@@ -1788,7 +1800,6 @@ class Building:
         if target not in reachable_from:
           reachable_from[target] = set()
         reachable_from[target].add(func)
-    #print 'reachable from', reachable_from
     to_check = initial_list[:]
     advised = set()
     if can_reach:
@@ -1796,6 +1807,7 @@ class Building:
       while len(to_check) > 0:
         curr = to_check.pop()
         if curr in reachable_from:
+          print '%s reachable from' % curr, dumps(reachable_from[curr])
           for reacher in reachable_from[curr]:
             if reacher not in advised:
               if not JS.is_dyn_call(reacher) and not JS.is_function_table(reacher): advised.add(str(reacher))
