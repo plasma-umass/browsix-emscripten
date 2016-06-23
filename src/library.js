@@ -249,6 +249,8 @@ LibraryManager.library = {
     Module['exit'](status);
   },
 
+  sigaltstack: function() {},
+
   fork__deps: ['$SYSCALLS', '__syscall2'],
   fork: function() {
     return ___syscall2();
