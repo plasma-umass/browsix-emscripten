@@ -523,7 +523,7 @@ LibraryManager.library = {
 #if USE_PTHREADS
   environ: '; if (ENVIRONMENT_IS_PTHREAD) _environ = PthreadWorkerInit._environ; else PthreadWorkerInit._environ = _environ = allocate(1, "i32*", ALLOC_STATIC)',
 #else
-  environ: '{{{ makeStaticAlloc(1) }}}',
+  environ: '{{{ makeStaticAlloc(4) }}}',
 #endif
   __environ__deps: ['environ'],
   __environ: 'environ',
@@ -546,9 +546,9 @@ LibraryManager.library = {
       // ENV['LANG'] = 'C';
       // ENV['_'] = Module['thisProgram'];
       // Allocate memory.
-      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_STATIC);
+      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_NORMAL);
       envPtr = allocate(MAX_ENV_VALUES * {{{ Runtime.QUANTUM_SIZE }}},
-                        'i8*', ALLOC_STATIC);
+                        'i8*', ALLOC_NORMAL);
       {{{ makeSetValue('envPtr', '0', 'poolPtr', 'i8*') }}};
       {{{ makeSetValue(makeGlobalUse('_environ'), 0, 'envPtr', 'i8*') }}};
     } else {

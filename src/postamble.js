@@ -126,6 +126,10 @@ Module['callMain'] = Module.callMain = function callMain(args) {
 
   ensureInitRuntime();
 
+  // build the environment here, because we're just going to malloc
+  // what we need to back our environment.
+  ___buildEnvironment(ENV);
+
   var argc = args.length+1;
   function pad() {
     for (var i = 0; i < {{{ QUANTUM_SIZE }}}-1; i++) {
@@ -354,9 +358,6 @@ if (ENVIRONMENT_IS_BROWSIX) {
     if (Runtime.process.pid) {
       abort('TODO: sync post-fork?');
     } else {
-      staticSealed = false;
-      ___buildEnvironment(ENV);
-      staticSealed = true;
       run(Runtime.process.argv.slice(2));
     }
   });
