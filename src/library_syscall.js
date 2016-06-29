@@ -278,7 +278,7 @@ var SyscallsLibrary = {
             this.syscallAsync(null, 'exit', [code]);
             while (true) {}
           } else {
-            this.sync(252 /* SYS_exit_group */, 0);
+            this.sync(252 /* SYS_exit_group */, code);
           }
         }
         USyscalls.prototype.addEventListener = function (type, handler) {
