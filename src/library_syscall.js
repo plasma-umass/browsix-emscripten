@@ -1288,6 +1288,13 @@ var SyscallsLibrary = {
     return 0; // advice is welcome, but ignored
   },
   __syscall220: function(which, varargs) { // SYS_getdents64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_GETDENTS64 = 220;
+      var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_GETDENTS64, fd, dirp, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
     if (!stream.getdents) {
       stream.getdents = FS.readdir(stream.path);
