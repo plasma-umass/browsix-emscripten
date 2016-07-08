@@ -1330,6 +1330,24 @@ var SyscallsLibrary = {
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_FCNTL64 = 220;
+      var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+      var arg = 0;
+
+      // only some of the commands have multiple arguments.
+      switch (cmd) {
+      case {{{ cDefine('F_DUPFD') }}}:
+      case {{{ cDefine('F_SETFL') }}}:
+      case {{{ cDefine('F_GETLK') }}}:
+      case {{{ cDefine('F_GETLK64') }}}:
+        arg = SYSCALLS.get();
+      }
+
+      return SYSCALLS.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), cmd = SYSCALLS.get();
     switch (cmd) {
       case {{{ cDefine('F_DUPFD') }}}: {
