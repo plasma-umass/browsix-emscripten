@@ -54,7 +54,7 @@ var TOTAL_STACK = 5*1024*1024; // The total stack size. There is no way to enlar
                                // value must be large enough for the program's requirements. If
                                // assertions are on, we will assert on not exceeding this, otherwise,
                                // it will fail silently.
-var TOTAL_MEMORY = 256*1024*1024;     // The total amount of memory to use. Using more memory than this will
+var TOTAL_MEMORY = 128*1024*1024;     // The total amount of memory to use. Using more memory than this will
                                  // cause us to expand the heap, which can be costly with typed arrays:
                                  // we need to copy the old heap into a new one in that case.
 var ABORTING_MALLOC = 1; // If 1, then when malloc would fail we abort(). This is nonstandard behavior,
