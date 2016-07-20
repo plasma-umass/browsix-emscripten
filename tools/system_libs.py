@@ -113,6 +113,8 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
           for part in dir_parts:
             if f.endswith('pthread_sigmask.c'):
               break
+            if f.endswith('__environ.c'):
+              break
             elif part == 'thread':
               cancel = True
               break
