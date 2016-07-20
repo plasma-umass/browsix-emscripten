@@ -1542,9 +1542,15 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if shared.Settings.BINARYEN:
       # add in the glue integration code as a pre-js, so it is optimized together with everything else
       wasm_js_glue = open(os.path.join(shared.Settings.BINARYEN_ROOT, 'src', 'js', 'wasm.js-post.js')).read()
-      wasm_js_glue = wasm_js_glue.replace('{{{ asmjsCodeFile }}}', '"' + os.path.basename(asm_target) + '"')
-      wasm_js_glue = wasm_js_glue.replace('{{{ wasmTextFile }}}', '"' + os.path.basename(wasm_text_target) + '"')
-      wasm_js_glue = wasm_js_glue.replace('{{{ wasmBinaryFile }}}', '"' + os.path.basename(wasm_binary_target) + '"')
+      if shared.Settings.BROWSIX == 0:
+        wasm_js_glue = wasm_js_glue.replace('{{{ asmjsCodeFile }}}', '"' + os.path.basename(asm_target) + '"')
+        wasm_js_glue = wasm_js_glue.replace('{{{ wasmTextFile }}}', '"' + os.path.basename(wasm_text_target) + '"')
+        wasm_js_glue = wasm_js_glue.replace('{{{ wasmBinaryFile }}}', '"' + os.path.basename(wasm_binary_target) + '"')
+      else:
+        wasm_js_glue = wasm_js_glue.replace('{{{ asmjsCodeFile }}}', 'undefined')
+        wasm_js_glue = wasm_js_glue.replace('{{{ wasmTextFile }}}', 'undefined')
+        wasm_js_glue = wasm_js_glue.replace('{{{ wasmBinaryFile }}}', 'undefined')
+
       if shared.Settings.BINARYEN_METHOD:
         wasm_js_glue = wasm_js_glue.replace('{{{ wasmJSMethod }}}', '(Module[\'wasmJSMethod\'] || "' + shared.Settings.BINARYEN_METHOD + '")')
       else:
@@ -1895,7 +1901,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
            '--offset', str(0)])
 
     # Move final output to the js target
-    #shutil.move(final, js_target)
+    shutil.move(final, js_target+'.js')
 
     # Separate out the asm.js code, if asked. Or, if necessary for another option
     if (separate_asm or shared.Settings.BINARYEN) and not shared.Settings.WASM_BACKEND:

@@ -1536,6 +1536,7 @@ return ASM_CONSTS[code](%s);
   the_global = '{}'
   sending = '{ ' + ', '.join(['"' + math_fix(s) + '": ' + s for s in basic_funcs + global_funcs + basic_vars + basic_float_vars + global_vars]) + ' }'
   # received
+  reserving = ''
   receiving = ''
   if settings['ASSERTIONS']:
     # assert on the runtime being in a valid state when calling into compiled code. The only exceptions are
@@ -1548,9 +1549,11 @@ return real_''' + asmjs_mangle(s) + '''.apply(null, arguments);
 ''' for s in exported_implemented_functions if s not in ['_memcpy', '_memset', 'runPostSets', '_emscripten_replace_memory']])
 
   if not settings['SWAPPABLE_ASM_MODULE']:
-    receiving += ';\n'.join(['var ' + asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = asm["' + s + '"]' for s in exported_implemented_functions])
+    reserving += ';\n'.join(['var ' + asmjs_mangle(s) for s in exported_implemented_functions])
+    receiving += ';\n  '.join([asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = asm["' + s + '"]' for s in exported_implemented_functions])
   else:
     receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = function() { return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions])
+  reserving += ';\n'
   receiving += ';\n'
 
   # finalize
@@ -1567,26 +1570,46 @@ Module%s = %s;
 ''' % (access_quote('asmGlobalArg'), the_global,
      shared_array_buffer,
      access_quote('asmLibraryArg'), sending) + '''
-var asm = Module['asm'](%s, %s, buffer);
+//var asm = Module['asm'](%s, %s, buffer);
 %s;
+function updateAsmExports() {
+  %s
+}
 ''' % ('Module' + access_quote('asmGlobalArg'),
      'Module' + access_quote('asmLibraryArg'),
+     reserving,
      receiving)]
+
+  # split up receiving into defining vs assigning.  put assigning into function
+
+  # dynCall_ii = Module["dynCall_ii"] = asm["dynCall_ii"];
+  # _memmove = Module["_memmove"] = asm["memmove"];
+  # dynCall_iiii = Module["dynCall_iiii"] = asm["dynCall_iiii"];
+  # _memset = Module["_memset"] = asm["memset"];
+  # ___errno_location = Module["___errno_location"] = asm["__errno_location"];
+  # dynCall_vi = Module["dynCall_vi"] = asm["dynCall_vi"];
+  # _memory = Module["_memory"] = asm["memory"];
+  # _fflush = Module["_fflush"] = asm["fflush"];
+  # _main = Module["_main"] = asm["main"];
+  # _memcpy = Module["_memcpy"] = asm["memcpy"];
+
 
   # wasm backend stack goes down, and is stored in the first global var location
   funcs_js.append('''
 STACKTOP = STACK_BASE + TOTAL_STACK;
 STACK_MAX = STACK_BASE;
-HEAP32[%d >> 2] = STACKTOP;
-Runtime.stackAlloc = asm['stackAlloc'];
-Runtime.stackSave = asm['stackSave'];
-Runtime.stackRestore = asm['stackRestore'];
-Runtime.establishStackSpace = asm['establishStackSpace'];
+function updateAsmMemoryExports() {
+  HEAP32[%d >> 2] = STACKTOP;
+  Runtime.stackAlloc = asm['stackAlloc'];
+  Runtime.stackSave = asm['stackSave'];
+  Runtime.stackRestore = asm['stackRestore'];
+  Runtime.establishStackSpace = asm['establishStackSpace'];
 ''' % shared.Settings.GLOBAL_BASE)
 
   funcs_js.append('''
-Runtime.setTempRet0 = asm['setTempRet0'];
-Runtime.getTempRet0 = asm['getTempRet0'];
+  Runtime.setTempRet0 = asm['setTempRet0'];
+  Runtime.getTempRet0 = asm['getTempRet0'];
+}
 ''')
 
   for i in range(len(funcs_js)): # do this loop carefully to save memory

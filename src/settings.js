@@ -380,7 +380,7 @@ var FORCE_FILESYSTEM = 0; // Makes full filesystem support be included, even if 
                           // used. For example, if your C code uses no files, but you include some JS that does,
                           // you might need this.
 
-var EXPORTED_FUNCTIONS = ['_main'];
+var EXPORTED_FUNCTIONS = ['_main', '_free'];
                                     // Functions that are explicitly exported. These functions are kept alive
                                     // through LLVM dead code elimination, and also made accessible outside of
                                     // the generated code even after running closure compiler (on "Module").
@@ -537,9 +537,13 @@ var DEFAULT_LIBRARY_FUNCS_TO_INCLUDE = [
     '__syscall333',
     '__syscall334',
     '__syscall340',
+    '_exit',
+    'exit',
+    'putenv',
+    'getenv',
 ];
 
-var LIBRARY_DEPS_TO_AUTOEXPORT = ['memcpy']; // This list is also used to determine
+var LIBRARY_DEPS_TO_AUTOEXPORT = ['memcpy', 'free', 'malloc', '_free']; // This list is also used to determine
                                              // auto-exporting of library dependencies (i.e., functions that
                                              // might be dependencies of JS library functions, that if
                                              // so we must export so that if they are implemented in C

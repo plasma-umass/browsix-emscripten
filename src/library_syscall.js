@@ -358,7 +358,14 @@ var SyscallsLibrary = {
           asm.emtStackRestore(forkArgs.emtStackTop);
         }
 
-        args = [args[0]].concat(args);
+        var wasmPath = args[1];
+        if (!wasmPath) {
+          console.log('Embrowsix: path to wasm required as 0th arg');
+          SYSCALLS.browsix.syscall.exit(-1);
+        }
+
+        // args[0] refers to our 'dynamic loader/ld' don't pass that on to the program.
+        args = args.slice(1);
 
         Runtime.process.argv = args;
         Runtime.process.env = environ;
@@ -373,7 +380,6 @@ var SyscallsLibrary = {
         var ret = new SharedArrayBuffer(TOTAL_MEMORY);
         var temp = new Int8Array(ret);
         temp.set(oldHEAP8);
-        _emscripten_replace_memory(ret);
         updateGlobalBuffer(ret);
         updateGlobalBufferViews();
 
@@ -386,14 +392,83 @@ var SyscallsLibrary = {
         var waitOff = getMemory(1024) + 512;
         getMemory(1024);
         SYSCALLS.browsix.waitOff = waitOff;
-        SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                              [PER_BLOCKING, buffer, waitOff], [buffer]);
+
+        var wasmFd = -1;
+        var wasmLen = 0;
+        var wasmBytes = null;
+
+        SYSCALLS.browsix.syscall.syscallAsync(wasmOpened, 'open', [wasmPath, 'r', undefined]);
+        function wasmOpened(err, fd) {
+          if (err) {
+            console.log('Embrowsix: open on "' + wasmPath + '" failed.');
+            SYSCALLS.browsix.syscall.exit(-1);
+          }
+
+          wasmFd = fd;
+
+          SYSCALLS.browsix.syscall.syscallAsync(wasmStated, 'fstat', [wasmFd]);
+        }
+
+        function wasmStated(err, stats) {
+          if (err) {
+            console.log('Embrowsix: stat on "' + wasmPath + '" failed.');
+            SYSCALLS.browsix.syscall.exit(-1);
+          }
+
+          // FIXME: I feel so dirty doing this
+          wasmLen = new Int32Array(stats.buffer)[12];
+
+          SYSCALLS.browsix.syscall.syscallAsync(wasmRead, 'pread', [wasmFd, wasmLen, -1]);
+        }
+
+        function wasmRead(err, len, buf) {
+          if (err) {
+            console.log('Embrowsix: read on "' + wasmPath + '" failed.');
+            SYSCALLS.browsix.syscall.exit(-1);
+          }
+
+          Module['wasmBinary'] = buf;
+
+          SYSCALLS.browsix.syscall.syscallAsync(wasmClosed, 'close', [wasmFd]);
+        }
+
+        function wasmClosed(err) {
+          if (err) {
+            console.log('Embrowsix: close on "' + wasmPath + '" failed.');
+            SYSCALLS.browsix.syscall.exit(-1);
+          }
+
+          SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                                [PER_BLOCKING, buffer, waitOff], [buffer]);
+        }
+
         function personalityChanged(err) {
           if (err) {
             console.log('personality: ' + err);
             return;
           }
           SYSCALLS.browsix.async = false;
+
+          if (!Module.asmLibraryArg['exit']) {
+            Module.asmLibraryArg['exit'] = function(code) {
+              console.log('FIXME: this exit() should never be called');
+              Module.asmLibraryArg['_Exit'](code);
+            }
+          }
+          if (!Module.asmLibraryArg['putenv']) {
+            Module.asmLibraryArg['putenv'] = function() {
+              Module.asmLibraryArg['putenv'] = _putenv;
+            }
+          }
+          if (!Module.asmLibraryArg['setjmp']) {
+            Module.asmLibraryArg['setjmp'] = function() {
+              abort('setjmp called');
+            }
+          }
+          asm = Module['asm'](Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          updateAsmExports();
+          updateAsmMemoryExports();
+
           setTimeout(function () { Runtime.process.emit('ready'); }, 0);
         }
       }
@@ -778,7 +853,7 @@ var SyscallsLibrary = {
         for (var i = 0; i < num; i++) {
           var iovbase = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_base, 'i8*') }}};
           var iovlen = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_len, 'i32') }}};
-          for (var j = 0; j < iovlen; j++) {  
+          for (var j = 0; j < iovlen; j++) {
             view[offset++] = {{{ makeGetValue('iovbase', 'j', 'i8') }}};
           }
         }
@@ -932,7 +1007,7 @@ var SyscallsLibrary = {
     assert(!exceptfds, 'exceptfds not supported');
 
     var total = 0;
-    
+
     var srcReadLow = (readfds ? {{{ makeGetValue('readfds', 0, 'i32') }}} : 0),
         srcReadHigh = (readfds ? {{{ makeGetValue('readfds', 4, 'i32') }}} : 0);
     var srcWriteLow = (writefds ? {{{ makeGetValue('writefds', 0, 'i32') }}} : 0),
@@ -999,7 +1074,7 @@ var SyscallsLibrary = {
       {{{ makeSetValue('exceptfds', '0', 'dstExceptLow', 'i32') }}};
       {{{ makeSetValue('exceptfds', '4', 'dstExceptHigh', 'i32') }}};
     }
-    
+
     return total;
   },
   __syscall144: function(which, varargs) { // msync
@@ -1555,7 +1630,7 @@ var SyscallsLibrary = {
     nanoseconds = {{{ makeGetValue('times', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
     var mtime = (seconds*1000) + (nanoseconds/(1000*1000));
     FS.utime(path, atime, mtime);
-    return 0;  
+    return 0;
   },
   __syscall324: function(which, varargs) { // fallocate
     var stream = SYSCALLS.getStreamFromFD(), mode = SYSCALLS.get(), offset = SYSCALLS.get64(), len = SYSCALLS.get64();
@@ -2022,4 +2097,3 @@ SyscallsLibrary.emscripten_syscall = eval('(' + switcher + ')');
 #endif
 
 mergeInto(LibraryManager.library, SyscallsLibrary);
-
