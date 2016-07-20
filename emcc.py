@@ -887,9 +887,14 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if js_target == '.js':
       js_target = target
 
-    asm_target = js_target[:-3] + '.asm.js' # might not be used, but if it is, this is the name
-    wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
-    wasm_binary_target = asm_target.replace('.asm.js', '.wasm') # ditto, might not be used
+    if js_target.endswith('.js'):
+      asm_target = js_target[:-3] + '.asm.js' # might not be used, but if it is, this is the name
+      wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
+      wasm_binary_target = asm_target.replace('.asm.js', '.wasm') # ditto, might not be used
+    else:
+      asm_target = js_target + '.asm.js'
+      wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
+      wasm_binary_target = asm_target.replace('.asm.js', '') # ditto, might not be used
 
     if final_suffix == 'html' and not separate_asm and ('PRECISE_F32=2' in settings_changes or 'USE_PTHREADS=2' in settings_changes):
       separate_asm = True
@@ -1495,8 +1500,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if shared.Settings.WASM_BACKEND:
       # we also received wasm at this stage
       wasm_temp = final[:-3] + '.wast'
-      shutil.move(wasm_temp, wasm_text_target)
-      open(wasm_text_target + '.mappedGlobals', 'w').write('{}') # no need for mapped globals for now, but perhaps some day
+      wasm_text_target = wasm_temp
+      #shutil.move(wasm_temp, wasm_text_target)
+      #open(wasm_text_target + '.mappedGlobals', 'w').write('{}') # no need for mapped globals for now, but perhaps some day
 
     if shared.Settings.CYBERDWARF:
       cd_target = final + '.cd'
@@ -1889,7 +1895,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
            '--offset', str(0)])
 
     # Move final output to the js target
-    shutil.move(final, js_target)
+    #shutil.move(final, js_target)
 
     # Separate out the asm.js code, if asked. Or, if necessary for another option
     if (separate_asm or shared.Settings.BINARYEN) and not shared.Settings.WASM_BACKEND:
@@ -1947,8 +1953,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
           subprocess.check_call([shared.PYTHON, os.path.join(binaryen_scripts, script), js_target, wasm_text_target], env=script_env)
       if 'native-wasm' in shared.Settings.BINARYEN_METHOD or 'interpret-binary' in shared.Settings.BINARYEN_METHOD:
         logging.debug('wasm-as (wasm => binary)')
+
         subprocess.check_call([os.path.join(binaryen_bin, 'wasm-as'), wasm_text_target, '-o', wasm_binary_target])
-        shutil.copyfile(wasm_text_target + '.mappedGlobals', wasm_binary_target + '.mappedGlobals')
+        #shutil.copyfile(wasm_text_target + '.mappedGlobals', wasm_binary_target + '.mappedGlobals')
 
     # If we were asked to also generate HTML, do that
     if final_suffix == 'html':
@@ -2097,7 +2104,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
   finally:
     if not TEMP_DIR:
       try:
-        shutil.rmtree(temp_dir)
+        pass#shutil.rmtree(temp_dir)
       except:
         pass
     else:
