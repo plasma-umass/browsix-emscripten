@@ -38,6 +38,7 @@ var ENVIRONMENT_IS_WEB = false;
 var ENVIRONMENT_IS_WORKER = false;
 var ENVIRONMENT_IS_NODE = false;
 var ENVIRONMENT_IS_SHELL = false;
+var ENVIRONMENT_IS_BROWSIX = false;
 
 // Three configurations we can be running in:
 // 1) We could be the application main() thread running in the main JS UI thread. (ENVIRONMENT_IS_WORKER == false and ENVIRONMENT_IS_PTHREAD == false)
@@ -61,6 +62,10 @@ if (Module['ENVIRONMENT']) {
   ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
   ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof require === 'function' && !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_WORKER;
   ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
+#if BROWSIX
+  ENVIRONMENT_IS_BROWSIX = ENVIRONMENT_IS_WORKER;
+  ENVIRONMENT_IS_WORKER = false;
+#endif
 }
 
 #if USE_PTHREADS
@@ -153,7 +158,7 @@ else if (ENVIRONMENT_IS_SHELL) {
   eval("if (typeof gc === 'function' && gc.toString().indexOf('[native code]') > 0) var gc = undefined"); // wipe out the SpiderMonkey shell 'gc' function, which can confuse closure (uses it as a minified name, and it is then initted to a non-falsey value unexpectedly)
 #endif
 }
-else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER | ENVIRONMENT_IS_BROWSIX) {
   Module['read'] = function read(url) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, false);

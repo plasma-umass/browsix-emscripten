@@ -126,6 +126,10 @@ Module['callMain'] = Module.callMain = function callMain(args) {
 
   ensureInitRuntime();
 
+  // build the environment here, because we're just going to malloc
+  // what we need to back our environment.
+  ___buildEnvironment(ENV);
+
   var argc = args.length+1;
   function pad() {
     for (var i = 0; i < {{{ QUANTUM_SIZE }}}-1; i++) {
@@ -272,6 +276,8 @@ function exit(status, implicit) {
 
   if (ENVIRONMENT_IS_NODE) {
     process['exit'](status);
+  } else if (ENVIRONMENT_IS_BROWSIX) {
+    Runtime.process.exit(status);
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
   }
@@ -336,11 +342,50 @@ if (Module['noInitialRun']) {
 Module["noExitRuntime"] = true;
 #endif
 
+#if BROWSIX
+if (ENVIRONMENT_IS_BROWSIX) {
+  self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+  Runtime.process.once('ready', function() {
+    Module['thisProgram'] = Runtime.process.argv[0];
+    for (var k in Runtime.process.env) {
+      if (!Runtime.process.env.hasOwnProperty(k))
+        continue;
+      ENV[k] = Runtime.process.env[k];
+    }
+    ENV = Runtime.process.env;
+    ENV['_'] = Runtime.process.argv[0];
+
+    if (Runtime.process.pid) {
+      abort('TODO: sync post-fork?');
+    } else {
+      run(Runtime.process.argv.slice(2));
+    }
+  });
+}
+#endif
+
+#if BROWSIX
+#if USE_PTHREADS
+if (!ENVIRONMENT_IS_PTHREAD && !ENVIRONMENT_IS_BROWSIX) run();
+#else
+if (!ENVIRONMENT_IS_BROWSIX) {
+  var oldHEAP8 = HEAP8;
+  ret = new ArrayBuffer(TOTAL_MEMORY);
+  var temp = new Int8Array(ret);
+  temp.set(oldHEAP8);
+  _emscripten_replace_memory(ret);
+  updateGlobalBuffer(ret);
+  updateGlobalBufferViews();
+  run();
+}
+#endif
+#else // BROWSIX
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD) run();
 #else
 run();
 #endif
+#endif // BROWSIX
 
 // {{POST_RUN_ADDITIONS}}
 

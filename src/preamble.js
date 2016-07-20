@@ -26,6 +26,65 @@ Runtime['addFunction'] = Runtime.addFunction;
 Runtime['removeFunction'] = Runtime.removeFunction;
 #endif
 
+
+#if BROWSIX
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
+var OnceEmitter = (function () {
+    function OnceEmitter() {
+        this.listeners = {};
+    }
+    OnceEmitter.prototype.once = function (event, cb) {
+        var cbs = this.listeners[event];
+        if (!cbs)
+            cbs = [cb];
+        else
+            cbs.push(cb);
+        this.listeners[event] = cbs;
+    };
+    OnceEmitter.prototype.emit = function (event) {
+        var args = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            args[_i - 1] = arguments[_i];
+        }
+        var cbs = this.listeners[event];
+        this.listeners[event] = [];
+        if (!cbs)
+            return;
+        for (var i = 0; i < cbs.length; i++) {
+            cbs[i].apply(null, args);
+        }
+    };
+    return OnceEmitter;
+})();
+var Process = (function (_super) {
+    __extends(Process, _super);
+    function Process(argv, environ) {
+        _super.call(this);
+        this.argv = argv;
+        this.env = environ;
+        this.syscall = null;
+    }
+    Process.prototype.exit = function (code) {
+        //Module['noExitRuntime'] = false;
+        if (code === void 0) { code = 0; }
+        SYSCALLS.browsix.syscall.exit(code);
+    };
+    return Process;
+})(OnceEmitter);
+
+if (ENVIRONMENT_IS_BROWSIX) {
+  Runtime['process'] = Runtime.process = new Process(null, null);
+  if (typeof Atomics !== 'undefined' && !Atomics.wait && Atomics.futexWait)
+    Atomics.wait = Atomics.futexWait;
+  if (typeof Atomics !== 'undefined' && !Atomics.wake && Atomics.futexWake)
+    Atomics.wake = Atomics.futexWake;
+}
+#endif
+
 #if BENCHMARK
 Module.realPrint = Module.print;
 Module.print = Module.printErr = function(){};
@@ -928,6 +987,19 @@ function updateGlobalBufferViews() {
   Module['HEAPU32'] = HEAPU32 = new Uint32Array(buffer);
   Module['HEAPF32'] = HEAPF32 = new Float32Array(buffer);
   Module['HEAPF64'] = HEAPF64 = new Float64Array(buffer);
+  // needed when run under emterpreter.
+  if (typeof asm !== 'undefined' && asm.update_heap) {
+    asm.update_heap();
+  } else {
+    HEAP8 = Module['HEAP8'];
+    HEAP16 = Module['HEAP16'];
+    HEAP32 = Module['HEAP32'];
+    HEAPU8 = Module['HEAPU8'];
+    HEAPU16 = Module['HEAPU16'];
+    HEAPU32 = Module['HEAPU32'];
+    HEAPF32 = Module['HEAPF32'];
+    HEAPF64 = Module['HEAPF64'];
+  }
 }
 
 var STATIC_BASE = 0, STATICTOP = 0, staticSealed = false; // static area
@@ -972,6 +1044,7 @@ function abortOnCannotGrowMemory() {
 }
 #else // ALLOW_MEMORY_GROWTH
 if (!Module['reallocBuffer']) Module['reallocBuffer'] = function(size) {
+  abort('Will not enlarge memory arrays');
   var ret;
   try {
     if (ArrayBuffer.transfer) {
@@ -1065,13 +1138,7 @@ function enlargeMemory() {
 }
 
 #if ALLOW_MEMORY_GROWTH
-var byteLength;
-try {
-  byteLength = Function.prototype.call.bind(Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get);
-  byteLength(new ArrayBuffer(4)); // can fail on older ie
-} catch(e) { // can fail on older node/v8
-  byteLength = function(buffer) { return buffer.byteLength; };
-}
+var byteLength = function(buffer) { return buffer.byteLength; };
 #endif
 
 var TOTAL_STACK = Module['TOTAL_STACK'] || {{{ TOTAL_STACK }}};

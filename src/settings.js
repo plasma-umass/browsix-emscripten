@@ -26,7 +26,7 @@ var QUANTUM_SIZE = 4; // This is the size of an individual field in a structure.
                       //
                       // Changing this from the default of 4 is deprecated.
 
-var ASSERTIONS = 1; // Whether we should add runtime assertions, for example to
+var ASSERTIONS = 2; // Whether we should add runtime assertions, for example to
                     // check that each allocation to the stack does not
                     // exceed its size, whether all allocations (stack and static) are
                     // of positive size, etc., whether we should throw if we encounter a bad __label__, i.e.,
@@ -54,7 +54,7 @@ var TOTAL_STACK = 5*1024*1024; // The total stack size. There is no way to enlar
                                // value must be large enough for the program's requirements. If
                                // assertions are on, we will assert on not exceeding this, otherwise,
                                // it will fail silently.
-var TOTAL_MEMORY = 16777216;     // The total amount of memory to use. Using more memory than this will
+var TOTAL_MEMORY = 128*1024*1024;     // The total amount of memory to use. Using more memory than this will
                                  // cause us to expand the heap, which can be costly with typed arrays:
                                  // we need to copy the old heap into a new one in that case.
 var ABORTING_MALLOC = 1; // If 1, then when malloc would fail we abort(). This is nonstandard behavior,
@@ -64,7 +64,7 @@ var ABORTING_MALLOC = 1; // If 1, then when malloc would fail we abort(). This i
                          // how big that initial allocation (TOTAL_MEMORY) must be.
                          // If you set this to 0, then you get the standard malloc behavior of
                          // returning NULL (0) when it fails.
-var ALLOW_MEMORY_GROWTH = 0; // If false, we abort with an error if we try to allocate more memory than
+var ALLOW_MEMORY_GROWTH = 1; // If false, we abort with an error if we try to allocate more memory than
                              // we can (TOTAL_MEMORY). If true, we will grow the memory arrays at
                              // runtime, seamlessly and dynamically. This has a performance cost though,
                              // both during the actual growth and in general (the latter is because in
@@ -805,6 +805,8 @@ var ORIGINAL_EXPORTED_FUNCTIONS = [];
 // the new values.
 
 var IN_TEST_HARNESS = 0; // If true, the current build is performed for the Emscripten test harness.
+
+var BROWSIX = 1; // If true, we assume that running in a Web Worker means we're running under Browsix.
 
 var USE_PTHREADS = 0; // If true, enables support for pthreads.
 

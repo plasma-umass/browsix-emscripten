@@ -1258,6 +1258,7 @@ void eliminate(Ref ast, bool memSafe) {
         seenUses[name]++;
       } else if (type == WHILE) {
         // try to remove loop helper variables specifically
+        /*
         Ref stats = node[2][1];
         Ref last = stats->back();
         if (!!last && last[0] == IF && last[2][0] == BLOCK && !!last[3] && last[3][0] == BLOCK) {
@@ -1437,6 +1438,7 @@ void eliminate(Ref ast, bool memSafe) {
             }
           }
         }
+        */
       }
     });
 

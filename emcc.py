@@ -340,7 +340,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
   if '.' in target:
     final_suffix = target.split('.')[-1]
   else:
-    final_suffix = ''
+    final_suffix = 'js'
 
   if TEMP_DIR:
     temp_dir = TEMP_DIR
@@ -753,7 +753,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if js_opts is None: js_opts = opt_level >= 2
     if llvm_opts is None: llvm_opts = LLVM_OPT_LEVEL[opt_level]
     if opt_level == 0: debug_level = max(3, debug_level)
-    if memory_init_file is None: memory_init_file = opt_level >= 2
+    # we only want a single JS file for Browsix
+    if memory_init_file is None: memory_init_file = opt_level >= 2 and shared.Settings.BROWSIX == 0
 
     # TODO: support source maps with js_transform
     if js_transform and debug_level >= 4:
@@ -883,6 +884,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     # target is now finalized, can finalize other _target s
     js_target = unsuffixed(target) + '.js'
+    if js_target == '.js':
+      js_target = target
 
     asm_target = js_target[:-3] + '.asm.js' # might not be used, but if it is, this is the name
     wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
@@ -1344,7 +1347,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
           logging.debug('link: ' + str(linker_inputs) + specified_target)
           # Sort arg tuples and pass the extracted values to link.
           shared.Building.link(linker_inputs, specified_target)
-      logging.debug('stopping at bitcode')
+      logging.debug('stopping at bitcode %s' % (final_suffix,))
       if final_suffix.lower() in ['so', 'dylib', 'dll']:
         logging.warning('Dynamic libraries (.so, .dylib, .dll) are currently not supported by Emscripten. For build system emulation purposes, Emscripten'
           + ' will now generate a static library file (.bc) with the suffix \'.' + final_suffix + '\'. For best practices,'

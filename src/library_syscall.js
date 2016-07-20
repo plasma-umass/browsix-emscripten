@@ -4,8 +4,9 @@ var SyscallsLibrary = {
                    '$FS', '$ERRNO_CODES', '$PATH',
 #endif
 #if SYSCALL_DEBUG
-                   '$ERRNO_MESSAGES'
+                   '$ERRNO_MESSAGES',
 #endif
+                   '$ENV',
   ],
   $SYSCALLS: {
 #if NO_FILESYSTEM == 0
@@ -203,7 +204,205 @@ var SyscallsLibrary = {
     },
     getZero: function() {
       assert(SYSCALLS.get() === 0);
-    }
+    },
+#if BROWSIX
+    browsix: (function() {
+      var exports = {};
+
+      exports.async = true;
+      exports.waitOff = -1;
+      exports.syncMsg = {
+        trap: 0|0,
+        args: [0|0, 0|0, 0|0, 0|0, 0|0, 0|0],
+      };
+
+      var SyscallResponse = (function () {
+        function SyscallResponse(id, name, args) {
+          this.id = id;
+          this.name = name;
+          this.args = args;
+        };
+        return SyscallResponse;
+      })();
+      exports.SyscallResponseFrom = function (ev) {
+        var requiredOnData = ['id', 'name', 'args'];
+        if (!ev.data)
+          return;
+        for (var i = 0; i < requiredOnData.length; i++) {
+          if (!ev.data.hasOwnProperty(requiredOnData[i]))
+            return;
+        }
+        var args = ev.data.args; //.map(convertApiErrors);
+        return {id: ev.data.id, name: ev.data.name, args: args};
+      };
+
+      var USyscalls = (function () {
+        function USyscalls(port) {
+          this.msgIdSeq = 1;
+          this.outstanding = {};
+          this.signalHandlers = {};
+        }
+        USyscalls.prototype.syscallAsync = function (cb, name, args, transferrables) {
+          var msgId = this.nextMsgId();
+          this.outstanding[msgId] = cb;
+          self.postMessage({
+            id: msgId,
+            name: name,
+            args: args,
+          }, transferrables);
+        };
+        USyscalls.prototype.sync = function (trap, a1, a2, a3, a4, a5, a6) {
+          var waitOff = SYSCALLS.browsix.waitOff;
+          var syncMsg = SYSCALLS.browsix.syncMsg;
+          syncMsg.trap = trap|0;
+          syncMsg.args[0] = a1|0;
+          syncMsg.args[1] = a2|0;
+          syncMsg.args[2] = a3|0;
+          syncMsg.args[3] = a4|0;
+          syncMsg.args[4] = a5|0;
+          syncMsg.args[5] = a6|0;
+
+          Atomics.store(HEAP32, waitOff >> 2, 0);
+          self.postMessage(syncMsg);
+          var paranoid = Atomics.load(HEAP32, waitOff >> 2)|0;
+          if (paranoid !== 1 && paranoid !== 0) {
+            Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
+            debugger;
+          }
+          Atomics.wait(HEAP32, waitOff >> 2, 0);
+          Atomics.store(HEAP32, waitOff >> 2, 0);
+          return Atomics.load(HEAP32, (waitOff >> 2) + 1);
+        };
+        USyscalls.prototype.exit = function(code) {
+          if (SYSCALLS.browsix.async) {
+            this.syscallAsync(null, 'exit', [code]);
+            while (true) {}
+          } else {
+            this.sync(252 /* SYS_exit_group */, code);
+          }
+        }
+        USyscalls.prototype.addEventListener = function (type, handler) {
+          if (!handler)
+            return;
+          if (this.signalHandlers[type])
+            this.signalHandlers[type].push(handler);
+          else
+            this.signalHandlers[type] = [handler];
+        };
+        USyscalls.prototype.resultHandler = function (ev) {
+          var response = SYSCALLS.browsix.SyscallResponseFrom(ev);
+          if (!response) {
+            console.log('bad usyscall message, dropping');
+            console.log(ev);
+            return;
+          }
+          if (response.name) {
+            var handlers = this.signalHandlers[response.name];
+            if (handlers) {
+              for (var i = 0; i < handlers.length; i++)
+                handlers[i](response);
+            }
+            else {
+              console.log('unhandled signal ' + response.name);
+            }
+            return;
+          }
+          this.complete(response.id, response.args);
+        };
+        USyscalls.prototype.complete = function (id, args) {
+          var cb = this.outstanding[id];
+          delete this.outstanding[id];
+          if (cb) {
+            cb.apply(undefined, args);
+          }
+          else {
+            console.log('unknown callback for msg ' + id + ' - ' + args);
+          }
+        };
+        USyscalls.prototype.nextMsgId = function () {
+          return ++this.msgIdSeq;
+        };
+        return USyscalls;
+      })();
+
+      var syscall = new USyscalls();
+      exports.syscall = syscall;
+
+      function init1(data) {
+        // 0: args
+        // 1: environ
+        // 2: debug flag
+        // 3: pid (if fork)
+        // 4: heap (if fork)
+        // 5: fork args (if fork)
+
+        var args = data.args[0];
+        var environ = data.args[1];
+        // args[4] is a copy of the heap - replace anything we just
+        // alloc'd with it.
+        if (data.args[4]) {
+          var pid = data.args[3];
+          var heap = data.args[4];
+          var forkArgs = data.args[5];
+
+          Runtime.process.parentBuffer = heap;
+          Runtime.process.pid = pid;
+          Runtime.process.forkArgs = forkArgs;
+
+          updateGlobalBuffer(Runtime.process.parentBuffer);
+          updateGlobalBufferViews();
+
+          assert(HEAP32.buffer === Runtime.process.parentBuffer);
+
+          asm.stackRestore(forkArgs.stackSave);
+          asm.emtStackRestore(forkArgs.emtStackTop);
+        }
+
+        args = [args[0]].concat(args);
+
+        Runtime.process.argv = args;
+        Runtime.process.env = environ;
+
+        if (typeof SharedArrayBuffer !== 'function') {
+          console.log('Embrowsix: shared array buffers required');
+          SYSCALLS.browsix.syscall.exit(-1);
+          return;
+        }
+
+        var oldHEAP8 = HEAP8;
+        var ret = new SharedArrayBuffer(TOTAL_MEMORY);
+        var temp = new Int8Array(ret);
+        temp.set(oldHEAP8);
+        _emscripten_replace_memory(ret);
+        updateGlobalBuffer(ret);
+        updateGlobalBufferViews();
+
+        var PER_BLOCKING = 0x80;
+        // it seems malloc overflows into our static allocation, so
+        // just reserve that, throw it away, and never use it.  The
+        // first number is in bytes, no matter what the 'i*' specifier
+        // is :\
+        getMemory(1024);
+        var waitOff = getMemory(1024) + 512;
+        getMemory(1024);
+        SYSCALLS.browsix.waitOff = waitOff;
+        SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                              [PER_BLOCKING, buffer, waitOff], [buffer]);
+        function personalityChanged(err) {
+          if (err) {
+            console.log('personality: ' + err);
+            return;
+          }
+          SYSCALLS.browsix.async = false;
+          setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+        }
+      }
+
+      syscall.addEventListener('init', init1);
+
+      return exports;
+    }()),
+#endif // BROWSIX
   },
 
   __syscall1: function(which, varargs) { // exit
@@ -211,20 +410,51 @@ var SyscallsLibrary = {
     Module['exit'](status);
     return 0;
   },
+  __syscall2: function(which, varargs) { // fork
+    abort('fork not supported without Browsix');
+  },
   __syscall3: function(which, varargs) { // read
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_READ = 3;
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_READ, fd, buf, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
   __syscall4: function(which, varargs) { // write
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_WRITE = 4;
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
   __syscall5: function(which, varargs) { // open
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_OPEN = 5;
+      var path = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_OPEN, path, flags, mode);
+    }
+#endif
     var pathname = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get() // optional TODO
     var stream = FS.open(pathname, flags, mode);
     return stream.fd;
   },
   __syscall6: function(which, varargs) { // close
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_CLOSE = 6;
+      var fd = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_CLOSE, fd);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD();
     FS.close(stream);
     return 0;
@@ -234,9 +464,19 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.EMLINK; // no hardlinks for us
   },
   __syscall10: function(which, varargs) { // unlink
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_UNLINK = 10;
+      var path = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_UNLINK, path);
+    }
+#endif
     var path = SYSCALLS.getStr();
     FS.unlink(path);
     return 0;
+  },
+  __syscall11: function(which, varargs) { // execve
+    abort('execve not supported without Browsix');
   },
   __syscall12: function(which, varargs) { // chdir
     var path = SYSCALLS.getStr();
@@ -260,6 +500,13 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.EINTR; // we can't pause
   },
   __syscall33: function(which, varargs) { // access
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_ACCESS = 33;
+      var path = SYSCALLS.get(), amode = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_ACCESS, path, amode);
+    }
+#endif
     var path = SYSCALLS.getStr(), amode = SYSCALLS.get();
     return SYSCALLS.doAccess(path, amode);
   },
@@ -293,6 +540,13 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.ENOSYS; // unsupported features
   },
   __syscall54: function(which, varargs) { // ioctl
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_IOCTL = 54;
+      var fd = SYSCALLS.get(), op = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_IOCTL, fd, op);
+    }
+#endif
 #if NO_FILESYSTEM
 #if SYSCALL_DEBUG
     Module.printErr('no-op in ioctl syscall due to NO_FILESYSTEM');
@@ -652,6 +906,13 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall140: function(which, varargs) { // llseek
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_LLSEEK = 140;
+      var fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
     var offset = offset_low;
     assert(offset_high === 0);
@@ -749,6 +1010,24 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall145: function(which, varargs) { // readv
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_READ = 3;
+      var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+      var ret = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        if (len === 0)
+          continue;
+        var read = SYSCALLS.browsix.syscall.sync(SYS_READ, fd, ptr, len);
+        if (read < 0)
+          return ret === 0 ? read : ret;
+        ret += read;
+      }
+      return ret;
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
     return SYSCALLS.doReadv(stream, iov, iovcnt);
   },
@@ -756,6 +1035,24 @@ var SyscallsLibrary = {
   __syscall146__postset: '/* flush anything remaining in the buffer during shutdown */ __ATEXIT__.push(function() { var fflush = Module["_fflush"]; if (fflush) fflush(0); var printChar = ___syscall146.printChar; if (!printChar) return; var buffers = ___syscall146.buffers; if (buffers[1].length) printChar(1, {{{ charCode("\n") }}}); if (buffers[2].length) printChar(2, {{{ charCode("\n") }}}); });',
 #endif
   __syscall146: function(which, varargs) { // writev
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_WRITE = 4;
+      var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+      var ret = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        if (len === 0)
+          continue;
+        var written = SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
+        if (written < 0)
+          return ret === 0 ? written : ret;
+        ret += written;
+      }
+      return ret;
+    }
+#endif
 #if NO_FILESYSTEM == 0
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
     return SYSCALLS.doWritev(stream, iov, iovcnt);
@@ -827,6 +1124,12 @@ var SyscallsLibrary = {
     }
     return nonzero;
   },
+  __syscall174: function(which, varargs) { // rt_sigaction
+    return 0;
+  },
+  __syscall175: function(which, varargs) { // rt_sigprocmask
+    return 0;
+  },
   __syscall180: function(which, varargs) { // pread64
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset);
@@ -839,6 +1142,13 @@ var SyscallsLibrary = {
     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, nbyte, offset);
   },
   __syscall183: function(which, varargs) { // getcwd
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_GETCWD = 183;
+      var buf = SYSCALLS.get(), size = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_GETCWD, buf, size);
+    }
+#endif
     var buf = SYSCALLS.get(), size = SYSCALLS.get();
     if (size === 0) return -ERRNO_CODES.EINVAL;
     var cwd = FS.cwd();
@@ -888,14 +1198,34 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall195: function(which, varargs) { // SYS_stat64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_STAT = 195;
+      var path = SYSCALLS.get(), buf = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_STAT, path, buf);
+    }
+#endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
     return SYSCALLS.doStat(FS.stat, path, buf);
   },
   __syscall196: function(which, varargs) { // SYS_lstat64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_LSTAT = 196;
+      var path = SYSCALLS.get(), buf = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_LSTAT, path, buf);
+    }
+#endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
     return SYSCALLS.doStat(FS.lstat, path, buf);
   },
   __syscall197: function(which, varargs) { // SYS_fstat64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var fd = SYSCALLS.get(), buf = SYSCALLS.get();
+      return -ERRNO_CODES.EIO;
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get();
     return SYSCALLS.doStat(FS.stat, stream.path, buf);
   },
@@ -958,6 +1288,13 @@ var SyscallsLibrary = {
     return 0; // advice is welcome, but ignored
   },
   __syscall220: function(which, varargs) { // SYS_getdents64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_GETDENTS64 = 220;
+      var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_GETDENTS64, fd, dirp, count);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
     if (!stream.getdents) {
       stream.getdents = FS.readdir(stream.path);
@@ -993,6 +1330,24 @@ var SyscallsLibrary = {
   },
   __syscall221__deps: ['__setErrNo'],
   __syscall221: function(which, varargs) { // fcntl64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_FCNTL64 = 220;
+      var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+      var arg = 0;
+
+      // only some of the commands have multiple arguments.
+      switch (cmd) {
+      case {{{ cDefine('F_DUPFD') }}}:
+      case {{{ cDefine('F_SETFL') }}}:
+      case {{{ cDefine('F_GETLK') }}}:
+      case {{{ cDefine('F_GETLK64') }}}:
+        arg = SYSCALLS.get();
+      }
+
+      return SYSCALLS.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), cmd = SYSCALLS.get();
     switch (cmd) {
       case {{{ cDefine('F_DUPFD') }}}: {
@@ -1110,6 +1465,12 @@ var SyscallsLibrary = {
     abort('futimesat is obsolete');
   },
   __syscall300: function(which, varargs) { // fstatat64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var dirfd = SYSCALLS.get(), path = SYSCALLS.get(), buf = SYSCALLS.get(), flags = SYSCALLS.get();
+      return -ERRNO_CODES.EIO;
+    }
+#endif
     var dirfd = SYSCALLS.get(), path = SYSCALLS.getStr(), buf = SYSCALLS.get(), flags = SYSCALLS.get();
     var nofollow = flags & {{{ cDefine('AT_SYMLINK_NOFOLLOW') }}};
     flags = flags & (~{{{ cDefine('AT_SYMLINK_NOFOLLOW') }}});
