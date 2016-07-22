@@ -54,7 +54,7 @@ var TOTAL_STACK = 5*1024*1024; // The total stack size. There is no way to enlar
                                // value must be large enough for the program's requirements. If
                                // assertions are on, we will assert on not exceeding this, otherwise,
                                // it will fail silently.
-var TOTAL_MEMORY = 16777216;     // The total amount of memory to use. Using more memory than this will
+var TOTAL_MEMORY = 128*1024*1024;     // The total amount of memory to use. Using more memory than this will
                                  // cause us to expand the heap, which can be costly with typed arrays:
                                  // we need to copy the old heap into a new one in that case.
 var ABORTING_MALLOC = 1; // If 1, then when malloc would fail we abort(). This is nonstandard behavior,
@@ -594,7 +594,7 @@ var NO_DYNAMIC_EXECUTION = 0; // When set to 1, we do not emit eval() and new Fu
                               // When set to -s NO_DYNAMIC_EXECUTION=2 flag is set, attempts to call to eval() are demoted
                               // to warnings instead of throwing an exception.
 
-var EMTERPRETIFY = 0; // Runs tools/emterpretify on the compiler output
+var EMTERPRETIFY = 1; // Runs tools/emterpretify on the compiler output
 var EMTERPRETIFY_FILE = ''; // If defined, a file to write bytecode to, otherwise the default is to embed it in text JS arrays (which is less efficient).
                             // When emitting HTML, we automatically generate code to load this file and set it to Module.emterpreterFile. If you
                             // emit JS, you need to make sure that Module.emterpreterFile contains an ArrayBuffer with the bytecode, when the code loads.
@@ -602,8 +602,8 @@ var EMTERPRETIFY_FILE = ''; // If defined, a file to write bytecode to, otherwis
 var EMTERPRETIFY_BLACKLIST = []; // Functions to not emterpret, that is, to run normally at full speed
 var EMTERPRETIFY_WHITELIST = []; // If this contains any functions, then only the functions in this list
                                  // are emterpreted (as if all the rest are blacklisted; this overrides the BLACKLIST)
-var EMTERPRETIFY_ASYNC = 0; // Allows sync code in the emterpreter, by saving the call stack, doing an async delay, and resuming it
-var EMTERPRETIFY_BROWSIX = 0; // Browsix integration for running multiple processes in different Web Workers.
+var EMTERPRETIFY_ASYNC = 1; // Allows sync code in the emterpreter, by saving the call stack, doing an async delay, and resuming it
+var EMTERPRETIFY_BROWSIX = 1; // Browsix integration for running multiple processes in different Web Workers.
 var EMTERPRETIFY_ADVISE = 0; // Performs a static analysis to suggest which functions should be run in the emterpreter, as it
                              // appears they can be on the stack when a sync function is called in the EMTERPRETIFY_ASYNC option.
                              // After showing the suggested list, compilation will halt. You can apply the provided list as an
