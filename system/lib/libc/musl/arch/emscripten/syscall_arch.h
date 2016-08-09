@@ -43,6 +43,7 @@ long __syscall29(int which, ...);
 long __syscall33(int which, ...);
 long __syscall34(int which, ...);
 long __syscall36(int which, ...);
+long __syscall37(int which, ...);
 long __syscall38(int which, ...);
 long __syscall39(int which, ...);
 long __syscall40(int which, ...);

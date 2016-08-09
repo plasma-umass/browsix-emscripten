@@ -476,6 +476,13 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall11: function(which, varargs) { // execve
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_EXECVE = 11;
+      var filename = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_EXECVE, filename, argv, envp);
+    }
+#endif
     abort('execve not supported without Browsix');
   },
   __syscall12: function(which, varargs) { // chdir
@@ -515,6 +522,17 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.EPERM; // no meaning to nice for our single-process environment
   },
   __syscall36: function(which, varargs) { // sync
+    return 0;
+  },
+  __syscall37: function(which, varargs) { // kill
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      var SYS_KILL = 37;
+      var pid = SYSCALLS.get(), sig = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_KILL, pid, sig);
+    }
+#endif
+    abort('kill not implemented outside Browsix');
     return 0;
   },
   __syscall38: function(which, varargs) { // rename
@@ -922,6 +940,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall142: function(which, varargs) { // newselect
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      abort('newselect not implemented');
+      return;
+    }
+#endif
     // readfds are supported,
     // writefds checks socket open status
     // exceptfds not supported
@@ -1104,6 +1128,12 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.ENOMEM; // never succeed
   },
   __syscall168: function(which, varargs) { // poll
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      abort('poll not implemented');
+      return;
+    }
+#endif
     var fds = SYSCALLS.get(), nfds = SYSCALLS.get(), timeout = SYSCALLS.get();
     var nonzero = 0;
     for (var i = 0; i < nfds; i++) {
@@ -1332,7 +1362,7 @@ var SyscallsLibrary = {
   __syscall221: function(which, varargs) { // fcntl64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
-      var SYS_FCNTL64 = 220;
+      var SYS_FCNTL64 = 221;
       var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
       var arg = 0;
 

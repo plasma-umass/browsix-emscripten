@@ -57,26 +57,7 @@ var funs = {
 #endif
     return 0;
   },
-  kill__deps: ['$ERRNO_CODES', '__setErrNo'],
-  kill: function(pid, sig) {
-    // http://pubs.opengroup.org/onlinepubs/000095399/functions/kill.html
-    // Makes no sense in a single-process environment.
-	  // Should kill itself somtimes depending on `pid`
-#if ASSERTIONS
-    Module.printErr('Calling stub instead of kill()');
-#endif
-    ___setErrNo(ERRNO_CODES.EPERM);
-    return -1;
-  },
 
-  killpg__deps: ['$ERRNO_CODES', '__setErrNo'],
-  killpg: function() {
-#if ASSERTIONS
-    Module.printErr('Calling stub instead of killpg()');
-#endif
-    ___setErrNo(ERRNO_CODES.EPERM);
-    return -1;
-  },
   siginterrupt: function() {
 #if ASSERTIONS
     Module.printErr('Calling stub instead of siginterrupt()');
