@@ -1633,14 +1633,16 @@ var SyscallsLibrary = {
             HEAP32[wstatus>>2] = wstatusIn;
           }
           if (rusageIn) {
-            console.log('fixme: wait4 rusage');
+            console.log('FIXME: wait4 rusage');
           }
 
           resume(function() {
             return ret;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'wait4' [pid, options]);
+        var sys_name = 'wait4';
+        var args = [pid, options];
+        SYSCALLS.browsix.syscall.syscallAsync(done, sys_name, args);
       });
 #else
       var SYS_WAIT4 = 114;

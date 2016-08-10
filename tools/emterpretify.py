@@ -960,6 +960,20 @@ if __name__ == '__main__':
 
   # finalize funcs JS (first line has the marker, add emterpreters right after that)
   asm.funcs_js = '\n'.join([lines[0], make_emterpreter(), make_emterpreter(zero=True) if ZERO else '', '\n'.join(filter(lambda line: len(line) > 0, lines[1:]))]) + '\n'
+  asm.funcs_js += '''
+
+function update_heap() {
+  HEAP8 = Module['HEAP8'];
+  HEAP16 = Module['HEAP16'];
+  HEAP32 = Module['HEAP32'];
+  HEAPU8 = Module['HEAPU8'];
+  HEAPU16 = Module['HEAPU16'];
+  HEAPU32 = Module['HEAPU32'];
+  HEAPF32 = Module['HEAPF32'];
+  HEAPF64 = Module['HEAPF64'];
+}
+
+  '''
   lines = None
 
   # set up emterpreter stack top (note we must use malloc if in a shared lib, or other enviroment where static memory is sealed)
