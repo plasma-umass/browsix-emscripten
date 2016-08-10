@@ -510,7 +510,6 @@ var SyscallsLibrary = {
     if (ENVIRONMENT_IS_BROWSIX) {
 #if EMTERPRETIFY_ASYNC
       return EmterpreterAsync.handle(function(resume) {
-
         var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
         var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
         var h = ho[0], ptr = ho[1];
@@ -523,7 +522,7 @@ var SyscallsLibrary = {
             break;
           i++;
         }
-        pathname = h.slice(ptr, ptr+i);
+        var pathname = h.slice(ptr, ptr+i);
 
         var done = function(err, fd) {
           resume(function() {
@@ -574,9 +573,34 @@ var SyscallsLibrary = {
   __syscall10: function(which, varargs) { // unlink
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var pathname = h.slice(ptr, ptr+i);
+
+        var done = function(err) {
+          resume(function() {
+            return err;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'unlink', [pathname]);
+      });
+#else
       var SYS_UNLINK = 10;
       var path = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_UNLINK, path);
+#endif
     }
 #endif
     var path = SYSCALLS.getStr();
@@ -663,7 +687,7 @@ var SyscallsLibrary = {
             break;
           i++;
         }
-        pathname = h.slice(ptr, ptr+i);
+        var pathname = h.slice(ptr, ptr+i);
 
         var done = function(err) {
           resume(function() {
@@ -684,10 +708,22 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall14: function(which, varargs) { // mknod
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: mknod');
+      abort('unsupported syscall mknod');
+    }
+#endif
     var path = SYSCALLS.getStr(), mode = SYSCALLS.get(), dev = SYSCALLS.get();
     return SYSCALLS.doMknod(path, mode, dev);
   },
   __syscall15: function(which, varargs) { // chmod
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: chmod');
+      abort('unsupported syscall chmod');
+    }
+#endif
     var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
     FS.chmod(path, mode);
     return 0;
@@ -714,47 +750,202 @@ var SyscallsLibrary = {
     return PROCINFO.pid;
   },
   __syscall29: function(which, varargs) { // pause
+    console.log('TODO: pause');
     return -ERRNO_CODES.EINTR; // we can't pause
   },
   __syscall33: function(which, varargs) { // access
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var pathname = h.slice(ptr, ptr+i);
+
+        var done = function(result) {
+          resume(function() {
+            return result;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'access', [pathname, flags]);
+      });
+#else
       var SYS_ACCESS = 33;
       var path = SYSCALLS.get(), amode = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_ACCESS, path, amode);
+#endif
     }
 #endif
     var path = SYSCALLS.getStr(), amode = SYSCALLS.get();
     return SYSCALLS.doAccess(path, amode);
   },
   __syscall34: function(which, varargs) { // nice
+    console.log('TODO: nice');
     var inc = SYSCALLS.get();
     return -ERRNO_CODES.EPERM; // no meaning to nice for our single-process environment
   },
   __syscall36: function(which, varargs) { // sync
+    console.log('TODO: sync');
     return 0;
   },
   __syscall37: function(which, varargs) { // kill
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pid = SYSCALLS.get(), sig = SYSCALLS.get();
+
+        var done = function(result) {
+          resume(function() {
+            return result;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'kill', [pid, sig]);
+      });
+#else
       var SYS_KILL = 37;
       var pid = SYSCALLS.get(), sig = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_KILL, pid, sig);
+#endif
     }
 #endif
     abort('kill not implemented outside Browsix');
     return 0;
   },
   __syscall38: function(which, varargs) { // rename
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var old_path_p = SYSCALLS.get(), new_path_p = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'old_path_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var old_path = h.slice(ptr, ptr+i);
+
+        ho = [{{{ heapAndOffset('HEAPU8', 'new_path_p') }}}];
+        h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var new_path = h.slice(ptr, ptr+i);
+
+        var done = function(result) {
+          resume(function() {
+            return result;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'rename', [old_path, new_path]);
+      });
+#else
+      var SYS_RENAME = 38;
+      var old_path = SYSCALLS.get(), new_path = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_RENAME, old_path, new_path);
+#endif
+    }
+#endif
     var old_path = SYSCALLS.getStr(), new_path = SYSCALLS.getStr();
     FS.rename(old_path, new_path);
     return 0;
   },
   __syscall39: function(which, varargs) { // mkdir
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get(), mode = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var pathname = h.slice(ptr, ptr+i);
+
+        var done = function(result) {
+          resume(function() {
+            return result;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'mkdir', [pathname, mode]);
+      });
+#else
+      var SYS_MKDIR = 39;
+      var path = SYSCALLS.get(), mode = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_ACCESS, path, mode);
+#endif
+    }
+#endif
     var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
     return SYSCALLS.doMkdir(path, mode);
   },
   __syscall40: function(which, varargs) { // rmdir
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        var pathname = h.slice(ptr, ptr+i);
+
+        var done = function(result) {
+          resume(function() {
+            return result;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'rmdir', [pathname]);
+      });
+#else
+      var SYS_RMDIR = 39;
+      var path = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_RMDIR, path);
+#endif
+    }
+#endif
     var path = SYSCALLS.getStr();
     FS.rmdir(path);
     return 0;
@@ -783,7 +974,32 @@ var SyscallsLibrary = {
     var old = SYSCALLS.getStreamFromFD();
     return FS.open(old.path, old.flags, 0).fd;
   },
-  __syscall42: '__syscall51',      // pipe
+  __syscall42: function(which, varargs) { // pipe
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pipefd = SYSCALLS.get();
+        var done = function(err, fd1, fd2) {
+          if (!err) {
+            HEAP32[(pipefd>>2)] = fd1;
+            HEAP32[(pipefd>>2)+1] = fd2;
+          }
+          resume(function() {
+            return err || 0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'pipe2', [0]);
+      });
+#else
+      var SYS_PIPE2 = 41;
+      var pipefd = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_PIPE2, pipefd, 0);
+#endif
+    }
+#endif
+    return -ERRNO_CODES.ENOSYS; // unsupported features
+  },
   __syscall51: function(which, varargs) { // acct
     return -ERRNO_CODES.ENOSYS; // unsupported features
   },
@@ -927,15 +1143,33 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall83: function(which, varargs) { // symlink
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: symlink');
+      abort('unsupported syscall symlink');
+    }
+#endif
     var target = SYSCALLS.getStr(), linkpath = SYSCALLS.getStr();
     FS.symlink(target, linkpath);
     return 0;
   },
   __syscall85: function(which, varargs) { // readlink
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: readlink');
+      abort('unsupported syscall readlink');
+    }
+#endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
     return SYSCALLS.doReadlink(path, buf, bufsize);
   },
   __syscall91: function(which, varargs) { // munmap
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: munmap');
+      abort('unsupported syscall munmap');
+    }
+#endif
     var addr = SYSCALLS.get(), len = SYSCALLS.get();
     // TODO: support unmmap'ing parts of allocations
     var info = SYSCALLS.mappings[addr];
@@ -952,6 +1186,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall94: function(which, varargs) { // fchmod
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: fchmod');
+      abort('unsupported syscall fchmod');
+    }
+#endif
     var fd = SYSCALLS.get(), mode = SYSCALLS.get();
     FS.fchmod(fd, mode);
     return 0;
@@ -964,6 +1204,244 @@ var SyscallsLibrary = {
   },
   __syscall102__deps: ['$SOCKFS', '$DNS', '_read_sockaddr', '_write_sockaddr'],
   __syscall102: function(which, varargs) { // socketcall
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var call = SYSCALLS.get(), socketvararg = SYSCALLS.get();
+        // socketcalls pass the rest of the arguments in a struct
+        SYSCALLS.varargs = socketvararg;
+        switch (call) {
+        case 1: { // socket
+          var domain = SYSCALLS.get(), type = SYSCALLS.get(), protocol = SYSCALLS.get();
+          var done = function(err, fd) {
+            resume(function() {
+              return err ? err : fd;
+            });
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'socket', [domain, type, protocol]);
+          break;
+        }
+        case 2: { // bind
+          var sock = SYSCALLS.get(), addrp = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          var ho = [{{{ heapAndOffset('HEAPU8', 'addrp') }}}];
+          var h = ho[0], off = ho[1];
+
+          var done = function(err) {
+            resume(function() {
+              return err;
+            });
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'bind', [sock, h.slice(off, off+addrlen)]);
+          break;
+        }
+        case 3: { // connect
+          var sock = SYSCALLS.get(), addrp = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          var ho = [{{{ heapAndOffset('HEAPU8', 'addrp') }}}];
+          var h = ho[0], off = ho[1];
+          var done = function(err) {
+            resume(function() {
+              return err;
+            });
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'connect', [sock, h.slice(off, off+addrlen)]);
+          return 0;
+        }
+        case 4: { // listen
+          var sock = SYSCALLS.get(), backlog = SYSCALLS.get();
+          var done = function(err) {
+            resume(function() {
+              return err;
+            });
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'listen', [sock, backlog]);
+          break;
+        }
+        case 5: { // accept
+          var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          var ho = [{{{ heapAndOffset('HEAPU8', 'addr') }}}];
+          var h = ho[0], off = ho[1];
+
+          var done = function(err, fd, clientaddr) {
+            if (!err) {
+              h.subarray(off, off+addrlen).set(clientaddr);
+            }
+
+            resume(function() {
+              return err ? (err|0) : fd;
+            });
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'accept', [sock]);
+          break;
+        }
+        case 6: { // getsockname
+          var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          // TODO: sock.saddr should never be undefined, see TODO in websocket_sock_ops.getname
+          var res = __write_sockaddr(addr, sock.family, DNS.lookup_name(sock.saddr || '0.0.0.0'), sock.sport);
+          assert(!res.errno);
+          return 0;
+        }
+        case 7: { // getpeername
+          var sock = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          if (!sock.daddr) {
+            return -ERRNO_CODES.ENOTCONN; // The socket is not connected.
+          }
+          var res = __write_sockaddr(addr, sock.family, DNS.lookup_name(sock.daddr), sock.dport);
+          assert(!res.errno);
+          return 0;
+        }
+        case 11: { // sendto
+          var sock = SYSCALLS.get(), msg = SYSCALLS.get(), length = SYSCALLS.get(), flags = SYSCALLS.get(), dest = SYSCALLS.get();
+          var ho = [{{{ heapAndOffset('HEAPU8', 'msg') }}}];
+          var h = ho[0], off = ho[1];
+          if (!dest) {
+            if (flags) {
+              console.log('TODO: flags');
+            }
+            var done = function(err, n) {
+              resume(function() {
+                return err ? (err|0) : n;
+              });
+            };
+            SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [sock, h.slice(off, off+length), -1]);
+          } else {
+            // sendto an address
+            console.log('TODO: datagram sendto not implemented');
+            debugger;
+            resume(function() {
+              return -ERRNO_CODES.ENOSYS;
+            });
+            //return sock.sock_ops.sendmsg(sock, {{{ heapAndOffset('HEAP8', 'message') }}}, length, dest.addr, dest.port);
+          }
+          break;
+        }
+        case 12: { // recvfrom
+          var sock = SYSCALLS.get(), buf = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
+          var msg = sock.sock_ops.recvmsg(sock, len);
+          if (!msg) return 0; // socket is closed
+          if (addr) {
+            var res = __write_sockaddr(addr, sock.family, DNS.lookup_name(msg.addr), msg.port);
+            assert(!res.errno);
+          }
+          HEAPU8.set(msg.buffer, buf);
+          return msg.buffer.byteLength;
+        }
+        case 14: { // setsockopt
+          console.log('FIXME: setsockopt');
+          resume(function() {
+            return 0;
+          });
+          break;
+          //return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
+        }
+        case 15: { // getsockopt
+          var sock = SYSCALLS.get(), level = SYSCALLS.get(), optname = SYSCALLS.get(), optval = SYSCALLS.get(), optlen = SYSCALLS.get();
+          // Minimal getsockopt aimed at resolving https://github.com/kripken/emscripten/issues/2211
+          // so only supports SOL_SOCKET with SO_ERROR.
+          if (level === {{{ cDefine('SOL_SOCKET') }}}) {
+            if (optname === {{{ cDefine('SO_ERROR') }}}) {
+              {{{ makeSetValue('optval', 0, 'sock.error', 'i32') }}};
+              {{{ makeSetValue('optlen', 0, 4, 'i32') }}};
+              sock.error = null; // Clear the error (The SO_ERROR option obtains and then clears this field).
+              return 0;
+            }
+          }
+          return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
+        }
+        case 16: { // sendmsg
+          var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), flags = SYSCALLS.get();
+          var iov = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iov, '*') }}};
+          var num = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iovlen, 'i32') }}};
+          // read the address and port to send to
+          var addr, port;
+          var name = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_name, '*') }}};
+          var namelen = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_namelen, 'i32') }}};
+          if (name) {
+            var info = __read_sockaddr(name, namelen);
+            if (info.errno) return -info.errno;
+            port = info.port;
+            addr = DNS.lookup_addr(info.addr) || info.addr;
+          }
+          // concatenate scatter-gather arrays into one message buffer
+          var total = 0;
+          for (var i = 0; i < num; i++) {
+            total += {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_len, 'i32') }}};
+          }
+          var view = new Uint8Array(total);
+          var offset = 0;
+          for (var i = 0; i < num; i++) {
+            var iovbase = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_base, 'i8*') }}};
+            var iovlen = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_len, 'i32') }}};
+            for (var j = 0; j < iovlen; j++) {
+              view[offset++] = {{{ makeGetValue('iovbase', 'j', 'i8') }}};
+            }
+          }
+          // write the buffer
+          return sock.sock_ops.sendmsg(sock, view, 0, total, addr, port);
+        }
+        case 17: { // recvmsg
+          var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), flags = SYSCALLS.get();
+          var iov = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iov, 'i8*') }}};
+          var num = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iovlen, 'i32') }}};
+          // get the total amount of data we can read across all arrays
+          var total = 0;
+          for (var i = 0; i < num; i++) {
+            total += {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_len, 'i32') }}};
+          }
+          // try to read total data
+          var msg = sock.sock_ops.recvmsg(sock, total);
+          if (!msg) return 0; // socket is closed
+
+          // TODO honor flags:
+          // MSG_OOB
+          // Requests out-of-band data. The significance and semantics of out-of-band data are protocol-specific.
+          // MSG_PEEK
+          // Peeks at the incoming message.
+          // MSG_WAITALL
+          // Requests that the function block until the full amount of data requested can be returned. The function may return a smaller amount of data if a signal is caught, if the connection is terminated, if MSG_PEEK was specified, or if an error is pending for the socket.
+
+          // write the source address out
+          var name = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_name, '*') }}};
+          if (name) {
+            var res = __write_sockaddr(name, sock.family, DNS.lookup_name(msg.addr), msg.port);
+            assert(!res.errno);
+          }
+          // write the buffer out to the scatter-gather arrays
+          var bytesRead = 0;
+          var bytesRemaining = msg.buffer.byteLength;
+          for (var i = 0; bytesRemaining > 0 && i < num; i++) {
+            var iovbase = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_base, 'i8*') }}};
+            var iovlen = {{{ makeGetValue('iov', '(' + C_STRUCTS.iovec.__size__ + ' * i) + ' + C_STRUCTS.iovec.iov_len, 'i32') }}};
+            if (!iovlen) {
+              continue;
+            }
+            var length = Math.min(iovlen, bytesRemaining);
+            var buf = msg.buffer.subarray(bytesRead, bytesRead + length);
+            HEAPU8.set(buf, iovbase + bytesRead);
+            bytesRead += length;
+            bytesRemaining -= length;
+          }
+
+          // TODO set msghdr.msg_flags
+          // MSG_EOR
+          // End of record was received (if supported by the protocol).
+          // MSG_OOB
+          // Out-of-band data was received.
+          // MSG_TRUNC
+          // Normal data was truncated.
+          // MSG_CTRUNC
+
+          return bytesRead;
+        }
+        default: abort('unsupported socketcall syscall ' + call);
+        }
+      });
+#else
+      abort('TODO: socket calls not yet supported in sync mode');
+#endif
+    }
+#endif
     var call = SYSCALLS.get(), socketvararg = SYSCALLS.get();
     // socketcalls pass the rest of the arguments in a struct
     SYSCALLS.varargs = socketvararg;
@@ -1613,7 +2091,7 @@ var SyscallsLibrary = {
             break;
           i++;
         }
-        pathname = h.slice(ptr, ptr+i);
+        var pathname = h.slice(ptr, ptr+i);
 
         var done = function(err, stat) {
           if (!err) {
@@ -1653,7 +2131,7 @@ var SyscallsLibrary = {
             break;
           i++;
         }
-        pathname = h.slice(ptr, ptr+i);
+        var pathname = h.slice(ptr, ptr+i);
 
         var done = function(err, stat) {
           if (!err) {
