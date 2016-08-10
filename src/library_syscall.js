@@ -3,6 +3,11 @@ var SyscallsLibrary = {
 #if NO_FILESYSTEM == 0
                    '$FS', '$ERRNO_CODES', '$PATH',
 #endif
+#if BROWSIX
+#if EMTERPRETIFY_ASYNC
+                   '$EmterpreterAsync',
+#endif
+#endif
 #if SYSCALL_DEBUG
                    '$ERRNO_MESSAGES',
 #endif
@@ -363,6 +368,10 @@ var SyscallsLibrary = {
         Runtime.process.argv = args;
         Runtime.process.env = environ;
 
+#if EMTERPRETIFY_ASYNC
+        SYSCALLS.browsix.async = true;
+        setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+#else
         if (typeof SharedArrayBuffer !== 'function') {
           console.log('Embrowsix: shared array buffers required');
           SYSCALLS.browsix.syscall.exit(-1);
@@ -396,6 +405,7 @@ var SyscallsLibrary = {
           SYSCALLS.browsix.async = false;
           setTimeout(function () { Runtime.process.emit('ready'); }, 0);
         }
+#endif
       }
 
       syscall.addEventListener('init', init1);
@@ -416,9 +426,29 @@ var SyscallsLibrary = {
   __syscall3: function(which, varargs) { // read
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+        var h = ho[0], off = ho[1];
+
+        var done = function(err, len, data) {
+          if (!err) {
+            h.subarray(off, off+count).set(data);
+          }
+
+          resume(function() {
+            return err ? (err|0) : len;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'pread', [fd, count, -1]);
+      });
+#else
       var SYS_READ = 3;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_READ, fd, buf, count);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
@@ -427,9 +457,25 @@ var SyscallsLibrary = {
   __syscall4: function(which, varargs) { // write
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+        var h = ho[0], off = ho[1];
+
+        var done = function(err, len) {
+          resume(function() {
+            return err ? (err|0) : len;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [fd, h.slice(off, off+count), -1]);
+      });
+#else
       var SYS_WRITE = 4;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
@@ -438,9 +484,35 @@ var SyscallsLibrary = {
   __syscall5: function(which, varargs) { // open
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var pathname_p = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        pathname = h.slice(ptr, ptr+i);
+
+        var done = function(err, fd) {
+          resume(function() {
+              return err ? err : fd;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'open', [pathname, flags, mode]);
+    });
+#else
       var SYS_OPEN = 5;
       var path = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_OPEN, path, flags, mode);
+#endif
     }
 #endif
     var pathname = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get() // optional TODO
@@ -450,9 +522,21 @@ var SyscallsLibrary = {
   __syscall6: function(which, varargs) { // close
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get();
+        var done = function(err) {
+          resume(function() {
+            return err;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'close', [fd]);
+      });
+#else
       var SYS_CLOSE = 6;
       var fd = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_CLOSE, fd);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD();
@@ -478,14 +562,99 @@ var SyscallsLibrary = {
   __syscall11: function(which, varargs) { // execve
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      function strp(inp) {
+        var ho = [{{{ heapAndOffset('HEAPU8', 'inp') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        return h.subarray(ptr, ptr+i);
+      }
+
+      // pulls a null-terimated array of strings out of memory, into an
+      // array of Uint8Arrays.
+      function arrp(inp) {
+        var ho = [{{{ heapAndOffset('HEAPU32', 'inp') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var arr = []
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i32', 0, 1) }}};
+          if (t === 0)
+            break;
+          arr.push(strp(t));
+          i += 4;
+        }
+        return arr;
+      }
+
+      return EmterpreterAsync.handle(function(resume) {
+        var filename_p = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
+
+        var filename = strp(filename_p);
+        var args = arrp(argv);
+        var env = arrp(envp);
+
+        // exec can fail if the file is not there, or not executable.
+        // If successful, this syscall won't complete.
+        var done = function(err) {
+          resume(function() {
+            return err;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'execve', [filename, args, env]);
+      });
+#else
       var SYS_EXECVE = 11;
       var filename = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_EXECVE, filename, argv, envp);
+#endif
     }
 #endif
     abort('execve not supported without Browsix');
   },
   __syscall12: function(which, varargs) { // chdir
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        pathname = h.slice(ptr, ptr+i);
+
+        var done = function(err) {
+          resume(function() {
+            return err;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'chdir', [pathname]);
+      });
+#else
+      var SYS_CHDIR = 12;
+      var pathname = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_CHDIR, pathname);
+#endif
+    }
+#endif
     var path = SYSCALLS.getStr();
     FS.chdir(path);
     return 0;
@@ -501,6 +670,23 @@ var SyscallsLibrary = {
   },
   __syscall20__deps: ['$PROCINFO'],
   __syscall20: function(which, varargs) { // getpid
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var done = function(err, pid) {
+          resume(function() {
+            return err ? (err|0) : pid;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'getpid');
+      });
+#else
+      var SYS_GETPID = 20;
+      return SYSCALLS.browsix.syscall.sync(SYS_GETPID);
+#endif
+    }
+#endif
     return PROCINFO.pid;
   },
   __syscall29: function(which, varargs) { // pause
@@ -550,6 +736,26 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall41: function(which, varargs) { // dup
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd1 = SYSCALLS.get();
+
+        var done = function(result) {
+          resume(function() {
+            return result|0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup', [fd1]);
+      });
+#else
+      var SYS_DUP = 41;
+      var fd1 = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_DUP, fd1);
+#endif
+    }
+#endif
     var old = SYSCALLS.getStreamFromFD();
     return FS.open(old.path, old.flags, 0).fd;
   },
@@ -560,9 +766,22 @@ var SyscallsLibrary = {
   __syscall54: function(which, varargs) { // ioctl
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get(), op = SYSCALLS.get();
+
+        var done = function(result) {
+          resume(function() {
+            return result|0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'ioctl', [fd, op]);
+      });
+#else
       var SYS_IOCTL = 54;
       var fd = SYSCALLS.get(), op = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_IOCTL, fd, op);
+#endif
     }
 #endif
 #if NO_FILESYSTEM
@@ -616,12 +835,49 @@ var SyscallsLibrary = {
     return old;
   },
   __syscall63: function(which, varargs) { // dup2
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
+
+        var done = function(result) {
+          resume(function() {
+            return result|0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, 0]);
+      });
+#else
+      var SYS_DUP = 330;
+      var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_DUP3, fd1, fd2, 0);
+#endif
+    }
+#endif
     var old = SYSCALLS.getStreamFromFD(), suggestFD = SYSCALLS.get();
     if (old.fd === suggestFD) return suggestFD;
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
   __syscall64__deps: ['$PROCINFO'],
   __syscall64: function(which, varargs) { // getppid
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var done = function(err, pid) {
+          resume(function() {
+            return err ? (err|0) : pid;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'getppid');
+      });
+#else
+      var SYS_GETPPID = 64;
+      return SYSCALLS.browsix.syscall.sync(SYS_GETPPID);
+#endif
+    }
+#endif
     return PROCINFO.ppid;
   },
   __syscall65__deps: ['$PROCINFO'],
@@ -1036,6 +1292,52 @@ var SyscallsLibrary = {
   __syscall145: function(which, varargs) { // readv
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+
+        bufs = [];
+        for (var i = 0; i < iovcnt; i++) {
+          var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+          var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+          if (len === 0)
+            continue;
+          bufs.push(HEAPU8.subarray(ptr, ptr+len));
+        }
+
+        if (!bufs.length) {
+          return resume(function() {
+            console.log('readv early 0');
+            return 0;
+          });
+        }
+
+        var lenRead = 0;
+
+        function readOne() {
+          var buf = bufs.shift();
+          var done = function(err, len, data) {
+
+            if (!err) {
+              lenRead += len;
+              buf.set(data);
+            }
+
+            if (bufs.length) {
+              readOne();
+            } else {
+              resume(function() {
+                console.log('readv regular ' + (err ? err : lenRead) + ' (' + err + ')');
+                return err ? err : lenRead;
+              });
+            }
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'pread', [fd, buf.length, -1]);
+        }
+        readOne();
+      });
+#else
       var SYS_READ = 3;
       var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
       var ret = 0;
@@ -1050,6 +1352,7 @@ var SyscallsLibrary = {
         ret += read;
       }
       return ret;
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
@@ -1061,6 +1364,47 @@ var SyscallsLibrary = {
   __syscall146: function(which, varargs) { // writev
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+
+        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+
+        bufs = [];
+        for (var i = 0; i < iovcnt; i++) {
+          var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+          var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+          if (len === 0)
+            continue;
+          bufs.push(HEAPU8.slice(ptr, ptr+len));
+        }
+
+        if (!bufs.length) {
+          return resume(function() {
+            return 0;
+          });
+        }
+
+        var written = 0;
+
+        function writeOne() {
+          var buf = bufs.shift();
+          var done = function(err, len) {
+            if (!err)
+              written += len;
+
+            if (bufs.length) {
+              writeOne();
+            } else {
+              resume(function() {
+                return err ? err : written;
+              });
+            }
+          };
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [fd, buf, -1]);
+        }
+        writeOne();
+      });
+#else
       var SYS_WRITE = 4;
       var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
       var ret = 0;
@@ -1075,6 +1419,7 @@ var SyscallsLibrary = {
         ret += written;
       }
       return ret;
+#endif
     }
 #endif
 #if NO_FILESYSTEM == 0
@@ -1230,9 +1575,38 @@ var SyscallsLibrary = {
   __syscall195: function(which, varargs) { // SYS_stat64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get(), buf = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        pathname = h.slice(ptr, ptr+i);
+
+        var done = function(err, stat) {
+          if (!err) {
+            HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+          }
+          resume(function() {
+            return err;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'stat', [pathname]);
+    });
+#else
       var SYS_STAT = 195;
       var path = SYSCALLS.get(), buf = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_STAT, path, buf);
+#endif
     }
 #endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
@@ -1241,9 +1615,38 @@ var SyscallsLibrary = {
   __syscall196: function(which, varargs) { // SYS_lstat64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pathname_p = SYSCALLS.get(), buf = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'pathname_p') }}}];
+        var h = ho[0], ptr = ho[1];
+
+        var i = 0;
+        var t;
+        while (true) {
+          t = {{{ makeGetValue('ptr', 'i', 'i8', 0, 1) }}};
+          if (t === 0)
+            break;
+          i++;
+        }
+        pathname = h.slice(ptr, ptr+i);
+
+        var done = function(err, stat) {
+          if (!err) {
+            HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+          }
+          resume(function() {
+            return err;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'lstat', [pathname]);
+    });
+#else
       var SYS_LSTAT = 196;
       var path = SYSCALLS.get(), buf = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_LSTAT, path, buf);
+#endif
     }
 #endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get();
@@ -1252,8 +1655,25 @@ var SyscallsLibrary = {
   __syscall197: function(which, varargs) { // SYS_fstat64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get(), buf = SYSCALLS.get();
+
+        var done = function(err, stat) {
+          if (!err) {
+            HEAPU8.subarray(buf, buf+stat.byteLength).set(stat);
+          }
+          resume(function() {
+            return err;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'fstat', [fd]);
+      });
+#else
       var fd = SYSCALLS.get(), buf = SYSCALLS.get();
       return -ERRNO_CODES.EIO;
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get();
@@ -1320,9 +1740,26 @@ var SyscallsLibrary = {
   __syscall220: function(which, varargs) { // SYS_getdents64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+
+        var done = function(err, buf) {
+          if (!err) {
+            HEAPU8.subarray(dirp, dirp+buf.byteLength).set(buf);
+          }
+          resume(function() {
+            return err ? err : buf.byteLength;
+          });
+        };
+
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'getdents', [fd, count]);
+      });
+#else
       var SYS_GETDENTS64 = 220;
       var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_GETDENTS64, fd, dirp, count);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
@@ -1362,6 +1799,28 @@ var SyscallsLibrary = {
   __syscall221: function(which, varargs) { // fcntl64
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+        var arg = 0;
+
+        // only some of the commands have multiple arguments.
+        switch (cmd) {
+        case {{{ cDefine('F_DUPFD') }}}:
+        case {{{ cDefine('F_SETFL') }}}:
+        case {{{ cDefine('F_GETLK') }}}:
+        case {{{ cDefine('F_GETLK64') }}}:
+          arg = SYSCALLS.get();
+        }
+
+        var done = function(err) {
+          resume(function() {
+            return err;
+          });
+        };
+        return SYSCALLS.browsix.syscall.syscallAsync(done, 'fcntl64', [fd, cmd, arg]);
+      });
+#else
       var SYS_FCNTL64 = 221;
       var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
       var arg = 0;
@@ -1376,6 +1835,7 @@ var SyscallsLibrary = {
       }
 
       return SYSCALLS.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), cmd = SYSCALLS.get();
@@ -1594,6 +2054,26 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall330: function(which, varargs) { // dup3
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
+
+        var done = function(result) {
+          resume(function() {
+            return result|0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, flags]);
+      });
+#else
+      var SYS_DUP3 = 330;
+      var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_DUP3, fd1, fd2, flags);
+#endif
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif

@@ -298,6 +298,11 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
   EMMAKEN_CFLAGS = os.environ.get('EMMAKEN_CFLAGS')
   if EMMAKEN_CFLAGS: sys.argv += shlex.split(EMMAKEN_CFLAGS)
+  if os.environ.get('EMCC_BROWSIX_ASYNC'):
+    logging.critical('enabling browsix async try 2')
+    sys.argv += ['-s', 'EMTERPRETIFY=1', '-s', 'EMTERPRETIFY_ASYNC=1']
+    shared.Settings.EMTERPRETIFY = 1
+    shared.Settings.EMTERPRETIFY_ASYNC = 1
 
   # ---------------- Utilities ---------------
 
