@@ -233,6 +233,21 @@ mergeInto(LibraryManager.library, {
       this.state = s;
       asm.setAsyncState(s);
     },
+    resumeFromFork: function resume(pc, post) {
+      EmterpreterAsync.setState(2);
+      EmterpreterAsync.postAsync = post || null;
+      asm.emterpret(pc); // pc of the first function, from which we can reconstruct the rest, is at position 0 on the stack
+      if (EmterpreterAsync.state === 0) {
+        // if we did *not* do another async operation, then we know that nothing is conceptually on the stack now, and we can re-allow async callbacks as well as run the queued ones right now
+        Browser.resumeAsyncCallbacks();
+      }
+      if (EmterpreterAsync.state === 0) {
+        EmterpreterAsync.asyncFinalizers.forEach(function(func) {
+          func();
+        });
+        EmterpreterAsync.asyncFinalizers.length = 0;
+      }
+    },
     handle: function(doAsyncOp, yieldDuring) {
       Module['noExitRuntime'] = true;
       if (EmterpreterAsync.state === 0) {

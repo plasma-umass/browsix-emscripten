@@ -160,8 +160,18 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
 #endif
 
+#if BROWSIX
+#if EMTERPRETIFY_ASYNC
+    if (ENVIRONMENT_IS_BROWSIX && EmterpreterAsync.state !== 1)
+      exit(ret, /* implicit = */ true);
+#else
     // if we're not running an evented main loop, it's time to exit
     exit(ret, /* implicit = */ true);
+#endif
+#else
+    // if we're not running an evented main loop, it's time to exit
+    exit(ret, /* implicit = */ true);
+#endif
   }
   catch(e) {
     if (e instanceof ExitStatus) {
@@ -356,7 +366,17 @@ if (ENVIRONMENT_IS_BROWSIX) {
     ENV['_'] = Runtime.process.argv[0];
 
     if (Runtime.process.pid) {
+#if EMTERPRETIFY_ASYNC
+      assert(HEAP32.buffer === Runtime.process.parentBuffer);
+      assert(HEAP32[EMTSTACKTOP>>2] === Runtime.process.forkArgs.pc);
+
+      EmterpreterAsync.resumeFromFork(Runtime.process.forkArgs.pc, function() {
+        // child returns 0 from fork
+        return 0;
+      });
+#else
       abort('TODO: sync post-fork?');
+#endif
     } else {
       run(Runtime.process.argv.slice(2));
     }
