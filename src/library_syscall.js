@@ -1622,12 +1622,45 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
   __syscall114: function(which, varargs) { // wait4
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pid = SYSCALLS.get(), wstatus = SYSCALLS.get(), options = SYSCALLS.get(), rusage = SYSCALLS.get();
+
+        var done = function(ret, wstatusIn, rusageIn) {
+          if (wstatus) {
+            HEAP32[wstatus>>2] = wstatusIn;
+          }
+          if (rusageIn) {
+            console.log('fixme: wait4 rusage');
+          }
+
+          resume(function() {
+            return ret;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'wait4' [pid, options]);
+      });
+#else
+      var SYS_WAIT4 = 114;
+      var pid = SYSCALLS.get(), wstatus = SYSCALLS.get(), options = SYSCALLS.get(), rusage = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_WAIT4, pid, wstatus, options, rusage);
+#endif
+    }
+#endif
     abort('cannot wait on child processes');
   },
 #if EMTERPRETIFY_ASYNC
   __syscall118__deps: ['$EmterpreterAsync'],
 #endif
   __syscall118: function(which, varargs) { // fsync
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: fsync');
+      return 0;
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD();
 #if EMTERPRETIFY_ASYNC
     return EmterpreterAsync.handle(function(resume) {
@@ -2008,10 +2041,22 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall180: function(which, varargs) { // pread64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: pread64');
+      abort('unsupported syscall pread64');
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get(), zero = SYSCALLS.getZero(), offset = SYSCALLS.get64();
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset);
   },
   __syscall181: function(which, varargs) { // pwrite64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: pwrite64');
+      abort('unsupported syscall pwrite64');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2021,9 +2066,32 @@ var SyscallsLibrary = {
   __syscall183: function(which, varargs) { // getcwd
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var buf = SYSCALLS.get(), size = SYSCALLS.get();
+        var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
+        var h = ho[0], off = ho[1];
+
+        var done = function(cwd) {
+          var sa = h.subarray(off, off+size);
+          var nullPos = cwd.byteLength;
+          if (nullPos >= size)
+            nullPos = size-1;
+
+          sa.set(cwd);
+          sa[nullPos] = 0;
+
+          resume(function() {
+            return buf;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallSync(done, 'getcwd', []);;
+      });
+#else
       var SYS_GETCWD = 183;
       var buf = SYSCALLS.get(), size = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_GETCWD, buf, size);
+#endif
     }
 #endif
     var buf = SYSCALLS.get(), size = SYSCALLS.get();
@@ -2045,6 +2113,12 @@ var SyscallsLibrary = {
     return 0; // just report no limits
   },
   __syscall192: function(which, varargs) { // mmap2
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: mmap2');
+      abort('unsupported syscall mmap2');
+    }
+#endif
     var addr = SYSCALLS.get(), len = SYSCALLS.get(), prot = SYSCALLS.get(), flags = SYSCALLS.get(), fd = SYSCALLS.get(), off = SYSCALLS.get()
     off <<= 12; // undo pgoffset
     var ptr;
@@ -2065,11 +2139,23 @@ var SyscallsLibrary = {
     return ptr;
   },
   __syscall193: function(which, varargs) { // truncate64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: truncate64');
+      abort('unsupported syscall truncate64');
+    }
+#endif
     var path = SYSCALLS.getStr(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
     FS.truncate(path, length);
     return 0;
   },
   __syscall194: function(which, varargs) { // ftruncate64
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: ftruncate64');
+      abort('unsupported syscall ftruncate64');
+    }
+#endif
     var fd = SYSCALLS.get(), zero = SYSCALLS.getZero(), length = SYSCALLS.get64();
     FS.ftruncate(fd, length);
     return 0;
@@ -2173,8 +2259,9 @@ var SyscallsLibrary = {
         SYSCALLS.browsix.syscall.syscallAsync(done, 'fstat', [fd]);
       });
 #else
+      var SYS_FSTAT64 = 197;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get();
-      return -ERRNO_CODES.EIO;
+      return SYSCALLS.browsix.syscall.sync(SYS_FSTAT64, fd, buf);
 #endif
     }
 #endif
@@ -2420,6 +2507,12 @@ var SyscallsLibrary = {
     return 0; // your advice is important to us (but we can't use it)
   },
   __syscall295: function(which, varargs) { // openat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: openat');
+      abort('unsupported syscall openat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2428,6 +2521,12 @@ var SyscallsLibrary = {
     return FS.open(path, flags, mode).fd;
   },
   __syscall296: function(which, varargs) { // mkdirat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: mkdirat');
+      abort('unsupported syscall mkdirat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2436,6 +2535,12 @@ var SyscallsLibrary = {
     return SYSCALLS.doMkdir(path, mode);
   },
   __syscall297: function(which, varargs) { // mknodat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: mknodat');
+      abort('unsupported syscall mknodat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2444,6 +2549,12 @@ var SyscallsLibrary = {
     return SYSCALLS.doMknod(path, mode, dev);
   },
   __syscall298: function(which, varargs) { // fchownat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: fchownat');
+      abort('unsupported syscall fchownat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2471,6 +2582,12 @@ var SyscallsLibrary = {
     return SYSCALLS.doStat(nofollow ? FS.lstat : FS.stat, path, buf);
   },
   __syscall301: function(which, varargs) { // unlinkat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: unlinkat');
+      abort('unsupported syscall unlinkat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2481,6 +2598,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall302: function(which, varargs) { // renameat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: renameat');
+      abort('unsupported syscall renameat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2494,6 +2617,12 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.EMLINK; // no hardlinks for us
   },
   __syscall304: function(which, varargs) { // symlinkat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: symlinkat');
+      abort('unsupported syscall symlinkat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2503,6 +2632,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall305: function(which, varargs) { // readlinkat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: readlinkat');
+      abort('unsupported syscall readlinkat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2511,6 +2646,12 @@ var SyscallsLibrary = {
     return SYSCALLS.doReadlink(path, buf, bufsize);
   },
   __syscall306: function(which, varargs) { // fchmodat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: fchmodat');
+      abort('unsupported syscall fchmodat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2521,6 +2662,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall307: function(which, varargs) { // faccessat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: faccessat');
+      abort('unsupported syscall faccessat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2530,9 +2677,21 @@ var SyscallsLibrary = {
     return SYSCALLS.doAccess(path, amode);
   },
   __syscall308: function(which, varargs) { // pselect
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: pselect');
+      abort('unsupported syscall pselect');
+    }
+#endif
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
   __syscall320: function(which, varargs) { // utimensat
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: utimensat');
+      abort('unsupported syscall utimensat');
+    }
+#endif
 #if SYSCALL_DEBUG
     Module.printErr('warning: untested syscall');
 #endif
@@ -2550,6 +2709,12 @@ var SyscallsLibrary = {
     return 0;  
   },
   __syscall324: function(which, varargs) { // fallocate
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+      console.log('TODO: fallocate');
+      abort('unsupported syscall fallocate');
+    }
+#endif
     var stream = SYSCALLS.getStreamFromFD(), mode = SYSCALLS.get(), offset = SYSCALLS.get64(), len = SYSCALLS.get64();
     assert(mode === 0);
     FS.allocate(stream, offset, len);
@@ -2585,6 +2750,29 @@ var SyscallsLibrary = {
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
   __syscall331: function(which, varargs) { // pipe2
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
+        var done = function(err, fd1, fd2) {
+          if (!err) {
+            HEAP32[(pipefd>>2)] = fd1;
+            HEAP32[(pipefd>>2)+1] = fd2;
+          }
+          resume(function() {
+            return err || 0;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'pipe2', [flags]);
+      });
+#else
+      var SYS_PIPE2 = 41;
+      var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
+#endif
+    }
+#endif
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
   __syscall333: function(which, varargs) { // preadv
