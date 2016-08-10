@@ -1745,11 +1745,11 @@ var SyscallsLibrary = {
         var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
 
         var done = function(err, buf) {
-          if (!err) {
+          if (err > 0) {
             HEAPU8.subarray(dirp, dirp+buf.byteLength).set(buf);
           }
           resume(function() {
-            return err ? err : buf.byteLength;
+            return err;
           });
         };
 
