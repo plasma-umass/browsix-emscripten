@@ -355,6 +355,14 @@ Module["noExitRuntime"] = true;
 #if BROWSIX
 if (ENVIRONMENT_IS_BROWSIX) {
   self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+#if EMTERPRETIFY_ASYNC
+  EmterpreterAsync.asyncFinalizers.push(function() {
+    Module['noExitRuntime'] = false;
+    // at this point, the return value of main is on the top of the
+    // stack, which should be used as our exit code.
+    exit(HEAP32[EMTSTACKTOP >> 2], true);
+  });
+#endif
   Runtime.process.once('ready', function() {
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {
