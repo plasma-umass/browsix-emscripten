@@ -2087,7 +2087,7 @@ var SyscallsLibrary = {
             return buf;
           });
         };
-        SYSCALLS.browsix.syscall.syscallSync(done, 'getcwd', []);;
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'getcwd', []);;
       });
 #else
       var SYS_GETCWD = 183;
