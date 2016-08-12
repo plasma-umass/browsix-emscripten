@@ -154,7 +154,7 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     var start = Date.now();
 #endif
 
-    var ret = Module['_main'](argc, argv, 0);
+    var ret = Module['_main'](argc, argv, HEAP32[_environ>>2]);
 
 #if BENCHMARK
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
