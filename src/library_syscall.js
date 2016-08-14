@@ -281,10 +281,10 @@ var SyscallsLibrary = {
         USyscalls.prototype.exit = function(code) {
           if (SYSCALLS.browsix.async) {
             this.syscallAsync(null, 'exit', [code]);
-            while (true) {}
           } else {
             this.sync(252 /* SYS_exit_group */, code);
           }
+          close();
         }
         USyscalls.prototype.addEventListener = function (type, handler) {
           if (!handler)
@@ -379,7 +379,7 @@ var SyscallsLibrary = {
           var msg = 'ERROR: requires SharedArrayBuffer support, exiting\n';
           var buf = new Uint8Array(msg.length);
           for (var i = 0; i < msg.length; i++)
-            buf[i] = str.charCodeAt(i);
+            buf[i] = msg.charCodeAt(i);
 
           SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [2, buf, -1]);
           console.log('Embrowsix: shared array buffers required');
@@ -2044,9 +2044,11 @@ var SyscallsLibrary = {
     return nonzero;
   },
   __syscall174: function(which, varargs) { // rt_sigaction
+    //console.log('TODO: sigaction');
     return 0;
   },
   __syscall175: function(which, varargs) { // rt_sigprocmask
+    //console.log('TODO: sigprocmask');
     return 0;
   },
   __syscall180: function(which, varargs) { // pread64
