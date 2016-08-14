@@ -105,7 +105,7 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
       ['abs.c', 'cos.c', 'cosf.c', 'cosl.c', 'sin.c', 'sinf.c', 'sinl.c', 'tan.c', 'tanf.c', 'tanl.c', 'acos.c', 'acosf.c', 'acosl.c', 'asin.c', 'asinf.c', 'asinl.c', 'atan.c', 'atanf.c', 'atanl.c', 'atan2.c', 'atan2f.c', 'atan2l.c', 'exp.c', 'expf.c', 'expl.c', 'log.c', 'logf.c', 'logl.c', 'sqrt.c', 'sqrtf.c', 'sqrtl.c', 'fabs.c', 'fabsf.c', 'fabsl.c', 'ceil.c', 'ceilf.c', 'ceill.c', 'floor.c', 'floorf.c', 'floorl.c', 'pow.c', 'powf.c', 'powl.c', 'round.c', 'roundf.c'] # individual math files
     )
     # applied after blacklist
-    whitelist = set(['wait3.c', 'wait4.c', 'pthread_sigmask.c'])
+    whitelist = set(['wait.c', 'wait3.c', 'wait4.c', 'pthread_sigmask.c'])
     # TODO: consider using more math code from musl, doing so makes box2d faster
     for dirpath, dirnames, filenames in os.walk(musl_srcdir):
       for f in filenames:
