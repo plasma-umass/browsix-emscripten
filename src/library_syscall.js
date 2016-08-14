@@ -373,8 +373,16 @@ var SyscallsLibrary = {
         setTimeout(function () { Runtime.process.emit('ready'); }, 0);
 #else
         if (typeof SharedArrayBuffer !== 'function') {
+          var done = function() {
+            SYSCALLS.browsix.syscall.exit(-1);
+          };
+          var msg = 'ERROR: requires SharedArrayBuffer support, exiting\n';
+          var buf = new Uint8Array(msg.length);
+          for (var i = 0; i < msg.length; i++)
+            buf[i] = str.charCodeAt(i);
+
+          SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [2, buf, -1]);
           console.log('Embrowsix: shared array buffers required');
-          SYSCALLS.browsix.syscall.exit(-1);
           return;
         }
 
@@ -1865,7 +1873,6 @@ var SyscallsLibrary = {
               readOne();
             } else {
               resume(function() {
-                console.log('readv regular ' + (err ? err : lenRead) + ' (' + err + ')');
                 return err ? err : lenRead;
               });
             }
