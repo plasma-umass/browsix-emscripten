@@ -2044,10 +2044,63 @@ var SyscallsLibrary = {
     return nonzero;
   },
   __syscall174: function(which, varargs) { // rt_sigaction
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var signum = SYSCALLS.get(), act = SYSCALLS.get(), oldact = SYSCALLS.get();
+
+        resume(function() {
+          return 0;
+        });
+
+        // var done = function(ret, oldact) {
+        //   resume(function() {
+        //     return ret;
+        //   });
+        // };
+        // SYSCALLS.browsix.syscall.syscallAsync(done, 'sigaction', [signum, act, oldact]);;
+      });
+#else
+      var SYS_SIGACTION = 174;
+      var signum = SYSCALLS.get(), act = SYSCALLS.get(), oldact = SYSCALLS.get();
+
+      // if act->sa_handler == SIG_DFL or SIG_IGN, pass along to
+      // kernel.  otherwise, register the pointer here somewhere.  and
+      // figure out how to invoke it?
+
+      return SYSCALLS.browsix.syscall.sync(SYS_SIGACTION, signum, act, oldact);
+#endif
+    }
+#endif
     //console.log('TODO: sigaction');
     return 0;
   },
   __syscall175: function(which, varargs) { // rt_sigprocmask
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var how = SYSCALLS.get(), set = SYSCALLS.get(), oldset = SYSCALLS.get();
+
+        resume(function() {
+          return 0;
+        });
+
+        // var done = function(ret, oldset) {
+        //   resume(function() {
+        //     return ret;
+        //   });
+        // };
+        // SYSCALLS.browsix.syscall.syscallAsync(done, 'sigprocmask', [how, set, oldset]);;
+      });
+#else
+      var SYS_SIGPROCMASK = 174;
+      var how = SYSCALLS.get(), set = SYSCALLS.get(), oldset = SYSCALLS.get();
+      return SYSCALLS.browsix.syscall.sync(SYS_SIGPROCMASK, how, set, oldset);
+#endif
+    }
+#endif
     //console.log('TODO: sigprocmask');
     return 0;
   },
