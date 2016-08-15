@@ -1197,7 +1197,8 @@ var SyscallsLibrary = {
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
       console.log('TODO: fchmod');
-      abort('unsupported syscall fchmod');
+      //abort('unsupported syscall fchmod');
+      return 0;
     }
 #endif
     var fd = SYSCALLS.get(), mode = SYSCALLS.get();
