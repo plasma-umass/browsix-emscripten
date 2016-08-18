@@ -288,6 +288,7 @@ function exit(status, implicit) {
     process['exit'](status);
   } else if (ENVIRONMENT_IS_BROWSIX) {
     Runtime.process.exit(status);
+    return;
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
   }
