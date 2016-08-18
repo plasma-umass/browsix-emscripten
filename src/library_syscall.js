@@ -1728,9 +1728,26 @@ var SyscallsLibrary = {
   __syscall140: function(which, varargs) { // llseek
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
+#if EMTERPRETIFY_ASYNC
+      return EmterpreterAsync.handle(function(resume) {
+        var fd = SYSCALLS.get(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
+        assert(offset_high === 0);
+
+        var done = function(err, off) {
+          if (!err) {
+            {{{ makeSetValue('result', '0', 'off', 'i32') }}};
+          }
+          resume(function() {
+            return err;
+          });
+        };
+        SYSCALLS.browsix.syscall.syscallAsync(done, 'llseek', [fd, offset_high, offset_low, whence]);
+    });
+#else
       var SYS_LLSEEK = 140;
       var fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
+#endif
     }
 #endif
     var stream = SYSCALLS.getStreamFromFD(), offset_high = SYSCALLS.get(), offset_low = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
