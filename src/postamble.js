@@ -261,10 +261,23 @@ Module['run'] = Module.run = run;
 function exit(status, implicit) {
   if (implicit && Module['noExitRuntime']) {
 #if ASSERTIONS
+#if !BROWSIX
     Module.printErr('exit(' + status + ') implicitly called by end of main(), but noExitRuntime, so not exiting the runtime (you can use emscripten_force_exit, if you want to force a true shutdown)');
+#endif
 #endif
     return;
   }
+
+#if BROWSIX
+  // we don't care about noExitRuntime for explicit exit calls in Browsix()
+  if (ENVIRONMENT_IS_BROWSIX) {
+    EXITSTATUS = status;
+    Runtime.process.exit(status);
+    // this will terminate the worker's execution as an uncaught
+    // Exception, which is what we want.
+    throw new ExitStatus(status);
+  }
+#endif
 
   if (Module['noExitRuntime']) {
 #if ASSERTIONS
@@ -286,9 +299,6 @@ function exit(status, implicit) {
 
   if (ENVIRONMENT_IS_NODE) {
     process['exit'](status);
-  } else if (ENVIRONMENT_IS_BROWSIX) {
-    Runtime.process.exit(status);
-    return;
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
   }
