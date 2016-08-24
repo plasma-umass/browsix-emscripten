@@ -298,7 +298,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
   EMMAKEN_CFLAGS = os.environ.get('EMMAKEN_CFLAGS')
   if EMMAKEN_CFLAGS: sys.argv += shlex.split(EMMAKEN_CFLAGS)
-  if os.environ.get('EMCC_BROWSIX_ASYNC'):
+  if os.environ.get('EMCC_BROWSIX_ASYNC') == '1':
     logging.critical('enabling browsix async try 2')
     sys.argv += ['-s', 'EMTERPRETIFY=1', '-s', 'EMTERPRETIFY_ASYNC=1']
     shared.Settings.EMTERPRETIFY = 1
@@ -1823,7 +1823,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       import json
       try:
         # move temp js to final position, alongside its mem init file
-        shutil.move(final, js_target)
+        shutil.copy(final, js_target)
         args = [shared.PYTHON, shared.path_from_root('tools', 'emterpretify.py'), js_target, final + '.em.js', json.dumps(shared.Settings.EMTERPRETIFY_BLACKLIST), json.dumps(shared.Settings.EMTERPRETIFY_WHITELIST), '', str(shared.Settings.SWAPPABLE_ASM_MODULE)]
         if shared.Settings.EMTERPRETIFY_ASYNC:
           args += ['ASYNC=1']
