@@ -1888,6 +1888,14 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     # Move final output to the js target
     shutil.move(final, js_target)
 
+    import stat
+    try:
+      os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR) # make executable
+      logging.warning('OK: chmod %s +x' % (js_target,))
+    except Exception as e:
+      logging.warning('ERR: chmod %s +x: %s' % (js_target, e))
+      pass # can fail if e.g. writing the executable to /dev/null
+
     # Separate out the asm.js code, if asked. Or, if necessary for another option
     if (separate_asm or shared.Settings.BINARYEN) and not shared.Settings.WASM_BACKEND:
       logging.debug('separating asm')
