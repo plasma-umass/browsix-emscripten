@@ -729,7 +729,7 @@ var SyscallsLibrary = {
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
       console.log('TODO: chmod');
-      abort('unsupported syscall chmod');
+      return 0;
     }
 #endif
     var path = SYSCALLS.getStr(), mode = SYSCALLS.get();
@@ -1155,6 +1155,7 @@ var SyscallsLibrary = {
     if (ENVIRONMENT_IS_BROWSIX) {
       console.log('TODO: symlink');
       abort('unsupported syscall symlink');
+      return 0;
     }
 #endif
     var target = SYSCALLS.getStr(), linkpath = SYSCALLS.getStr();
@@ -1166,6 +1167,7 @@ var SyscallsLibrary = {
     if (ENVIRONMENT_IS_BROWSIX) {
       console.log('TODO: readlink');
       abort('unsupported syscall readlink');
+      return 0;
     }
 #endif
     var path = SYSCALLS.getStr(), buf = SYSCALLS.get(), bufsize = SYSCALLS.get();
