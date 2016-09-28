@@ -1097,7 +1097,7 @@ var SyscallsLibrary = {
         SYSCALLS.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, 0]);
       });
 #else
-      var SYS_DUP = 330;
+      var SYS_DUP3 = 330;
       var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
       return SYSCALLS.browsix.syscall.sync(SYS_DUP3, fd1, fd2, 0);
 #endif
