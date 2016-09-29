@@ -389,12 +389,14 @@ var SyscallsLibrary = {
         }
 
         var oldHEAP8 = HEAP8;
-        var ret = new SharedArrayBuffer(TOTAL_MEMORY);
-        var temp = new Int8Array(ret);
-        temp.set(oldHEAP8);
-        _emscripten_replace_memory(ret);
-        updateGlobalBuffer(ret);
+        var b = new SharedArrayBuffer(TOTAL_MEMORY);
+        // copy whatever was in the old guy to here
+        new Int8Array(b).set(oldHEAP8);
+        updateGlobalBuffer(b);
         updateGlobalBufferViews();
+        asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+        initReceiving();
+        initRuntimeFuncs();
 
         var PER_BLOCKING = 0x80;
         // it seems malloc overflows into our static allocation, so

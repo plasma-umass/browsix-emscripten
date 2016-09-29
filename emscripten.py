@@ -86,8 +86,8 @@ def emscript(infile, settings, outfile, libraries=None, compiler_engine=None,
     funcs, metadata, mem_init = get_and_parse_backend(infile, settings, temp_files, DEBUG)
     glue, forwarded_data = compiler_glue(metadata, settings, libraries, compiler_engine, temp_files, DEBUG)
 
-    post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json = function_tables_and_exports(funcs, metadata, mem_init, glue, forwarded_data, settings, outfile, DEBUG)
-    finalize_output(metadata, post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json, settings, outfile, DEBUG)
+    post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving_decls, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json = function_tables_and_exports(funcs, metadata, mem_init, glue, forwarded_data, settings, outfile, DEBUG)
+    finalize_output(metadata, post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving_decls, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json, settings, outfile, DEBUG)
 
     success = True
 
@@ -858,6 +858,7 @@ function ftCall_%s(%s) {%s
     the_global = '{ ' + ', '.join(['"' + math_fix(s) + '": ' + s for s in fundamentals]) + ' }'
     sending = '{ ' + ', '.join(['"' + math_fix(s) + '": ' + s for s in basic_funcs + global_funcs + basic_vars + basic_float_vars + global_vars]) + ' }'
     # received
+    receiving_decls = ''
     receiving = ''
     if settings['ASSERTIONS']:
       # assert on the runtime being in a valid state when calling into compiled code. The only exceptions are
@@ -870,9 +871,11 @@ return real_''' + s + '''.apply(null, arguments);
 ''' for s in exported_implemented_functions if s not in ['_memcpy', '_memset', 'runPostSets', '_emscripten_replace_memory']])
 
     if not settings['SWAPPABLE_ASM_MODULE']:
-      receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables])
+      receiving_decls += ';\n'.join(['var ' + s for s in exported_implemented_functions + function_tables])
+      receiving += ';\n'.join(['  ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables])
     else:
       receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() { return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables])
+    receiving_decls += ';\n\n'
     receiving += ';\n'
 
     if settings['EXPORT_FUNCTION_TABLES']:
@@ -897,9 +900,9 @@ return real_''' + s + '''.apply(null, arguments);
     if DEBUG:
       logging.debug('  emscript: python processing: function tables and exports took %s seconds' % (time.time() - t))
 
-    return post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json
+    return post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving_decls, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json
 
-def finalize_output(metadata, post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json, settings, outfile, DEBUG):
+def finalize_output(metadata, post, funcs_js, need_asyncify, provide_fround, asm_safe_heap, sending, receiving_decls, receiving, asm_setup, the_global, asm_global_vars, asm_global_funcs, pre_tables, final_function_tables, exports, last_forwarded_json, settings, outfile, DEBUG):
 
     if DEBUG:
       logging.debug('emscript: python processing: finalize')
@@ -1148,7 +1151,8 @@ Module%s = %s;
 %s
 Module%s = %s;
 // EMSCRIPTEN_START_ASM
-var asm = (function(global, env, buffer) {
+var asm = undefined;
+var asmModule = (function(global, env, buffer) {
   %s
   %s
   %s
@@ -1232,31 +1236,47 @@ function _emscripten_replace_memory(newBuffer) {
   ''', pre_tables, final_function_tables, '''
 
   return %s;
-})
+});
 // EMSCRIPTEN_END_ASM
-(%s, %s, buffer);
+if (!ENVIRONMENT_IS_BROWSIX)
+    asm = asmModule(%s, %s, buffer);
 ''' % (exports,
        'Module' + access_quote('asmGlobalArg'),
        'Module' + access_quote('asmLibraryArg')), '''
+''', receiving_decls, '''
+function initReceiving() {
 ''', receiving, ''';
+}
+if (!ENVIRONMENT_IS_BROWSIX)
+  initReceiving();
 ''']
+
+    funcs_js.append('''
+function initRuntimeFuncs() {
+''')
 
     if not settings.get('SIDE_MODULE'):
       funcs_js.append('''
-Runtime.stackAlloc = asm['stackAlloc'];
-Runtime.stackSave = asm['stackSave'];
-Runtime.stackRestore = asm['stackRestore'];
-Runtime.establishStackSpace = asm['establishStackSpace'];
+  Runtime.stackAlloc = asm['stackAlloc'];
+  Runtime.stackSave = asm['stackSave'];
+  Runtime.stackRestore = asm['stackRestore'];
+  Runtime.establishStackSpace = asm['establishStackSpace'];
 ''')
       if settings['SAFE_HEAP']:
         funcs_js.append('''
-Runtime.setDynamicTop = asm['setDynamicTop'];
+  Runtime.setDynamicTop = asm['setDynamicTop'];
 ''')
 
     if not settings['RELOCATABLE']:
       funcs_js.append('''
-Runtime.setTempRet0 = asm['setTempRet0'];
-Runtime.getTempRet0 = asm['getTempRet0'];
+  Runtime.setTempRet0 = asm['setTempRet0'];
+  Runtime.getTempRet0 = asm['getTempRet0'];
+''')
+
+    funcs_js.append('''
+}
+if (!ENVIRONMENT_IS_BROWSIX)
+  initRuntimeFuncs();
 ''')
 
     # Set function table masks
@@ -1536,6 +1556,7 @@ return ASM_CONSTS[code](%s);
   the_global = '{}'
   sending = '{ ' + ', '.join(['"' + math_fix(s) + '": ' + s for s in basic_funcs + global_funcs + basic_vars + basic_float_vars + global_vars]) + ' }'
   # received
+  receiving_decls = ''
   receiving = ''
   if settings['ASSERTIONS']:
     # assert on the runtime being in a valid state when calling into compiled code. The only exceptions are
@@ -1548,7 +1569,8 @@ return real_''' + asmjs_mangle(s) + '''.apply(null, arguments);
 ''' for s in exported_implemented_functions if s not in ['_memcpy', '_memset', 'runPostSets', '_emscripten_replace_memory']])
 
   if not settings['SWAPPABLE_ASM_MODULE']:
-    receiving += ';\n'.join(['var ' + asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = asm["' + s + '"]' for s in exported_implemented_functions])
+    receiving_decls += ';\n'.join(['var ' + asmjs_mangle(s) for s in exported_implemented_functions])
+    receiving += ';\n'.join([asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = asm["' + s + '"]' for s in exported_implemented_functions])
   else:
     receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + asmjs_mangle(s) + ' = Module["' + asmjs_mangle(s) + '"] = function() { return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions])
   receiving += ';\n'
