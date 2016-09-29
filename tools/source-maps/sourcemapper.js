@@ -202,7 +202,7 @@ if (require.main === module) {
     }
 
     generateMap(mappings, sourceRoot, mapFileBaseName, generatedLineOffset);
-    appendMappingURL(opts._[opts._.length - 1], generatedSource,
-                     opts.mapFileBaseName + '.map');
+    //appendMappingURL(opts._[opts._.length - 1], generatedSource,
+    //                 opts.mapFileBaseName + '.map');
   }
 }
