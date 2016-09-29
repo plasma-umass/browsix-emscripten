@@ -122,7 +122,7 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
               break
           if f in whitelist or not cancel:
             libc_files.append(os.path.join(musl_srcdir, dirpath, f))
-    args = ['-Os']
+    args = ['-Os', '-g4']
     if shared.Settings.USE_PTHREADS:
       args += ['-s', 'USE_PTHREADS=1']
       assert '-mt' in libname
