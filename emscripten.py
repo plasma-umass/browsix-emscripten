@@ -609,7 +609,7 @@ function _emscripten_asm_const_%s(%s) {
     fundamentals += ['NaN', 'Infinity']
     if metadata['simd']:
         fundamentals += ['SIMD']
-    if settings['ALLOW_MEMORY_GROWTH']: fundamentals.append('byteLength')
+    if settings['ALLOW_MEMORY_GROWTH'] or settings['BROWSIX']: fundamentals.append('byteLength')
     math_envs = []
 
     provide_fround = settings['PRECISE_F32'] or settings['SIMD']
@@ -777,7 +777,7 @@ function ftCall_%s(%s) {%s
     exported_implemented_functions = list(exported_implemented_functions) + metadata['initializers']
     if not settings['ONLY_MY_CODE']:
       exported_implemented_functions.append('runPostSets')
-    if settings['ALLOW_MEMORY_GROWTH']:
+    if settings['ALLOW_MEMORY_GROWTH'] or settings['BROWSIX']:
       exported_implemented_functions.append('_emscripten_replace_memory')
     all_exported = exported_implemented_functions + asm_runtime_funcs + function_tables
     exported_implemented_functions = list(set(exported_implemented_functions))
@@ -1175,7 +1175,7 @@ var asm = (function(global, env, buffer) {
      access_quote('Uint32Array'),
      access_quote('Float32Array'),
      access_quote('Float64Array'))
-     if not settings['ALLOW_MEMORY_GROWTH'] else '''
+  if not settings['ALLOW_MEMORY_GROWTH'] and not settings['BROWSIX'] else '''
   var Int8View = global%s;
   var Int16View = global%s;
   var Int32View = global%s;
@@ -1212,7 +1212,7 @@ var asm = (function(global, env, buffer) {
   ['  var tempFloat = %s;\n' % ('Math_fround(0)' if provide_fround else '0.0')] + \
   ['  var asyncState = 0;\n' if settings.get('EMTERPRETIFY_ASYNC') else ''] + \
   (['  const f0 = Math_fround(0);\n'] if provide_fround else []) + \
-  ['' if not settings['ALLOW_MEMORY_GROWTH'] else '''
+  ['' if not settings['ALLOW_MEMORY_GROWTH'] and not settings['BROWSIX'] else '''
 function _emscripten_replace_memory(newBuffer) {
   if ((byteLength(newBuffer) & 0xffffff || byteLength(newBuffer) <= 0xffffff) || byteLength(newBuffer) > 0x80000000) return false;
   HEAP8 = new Int8View(newBuffer);
