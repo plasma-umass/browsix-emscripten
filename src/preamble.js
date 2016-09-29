@@ -1097,11 +1097,6 @@ function enlargeMemory() {
 #if ALLOW_MEMORY_GROWTH
 var byteLength = function(buffer) { return buffer.byteLength; };
 #endif
-#if BROWSIX
-#if !ALLOW_MEMORY_GROWTH
-var byteLength = function(buffer) { return buffer.byteLength; };
-#endif
-#endif
 
 var TOTAL_STACK = Module['TOTAL_STACK'] || {{{ TOTAL_STACK }}};
 var TOTAL_MEMORY = Module['TOTAL_MEMORY'] || {{{ TOTAL_MEMORY }}};
