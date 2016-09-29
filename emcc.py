@@ -23,7 +23,7 @@ emcc can be influenced by a few environment variables:
   EMMAKEN_COMPILER - The compiler to be used, if you don't want the default clang.
 '''
 
-import os, sys, shutil, tempfile, subprocess, shlex, time, re, logging
+import base64, os, sys, shutil, tempfile, subprocess, shlex, time, re, logging
 from subprocess import PIPE
 from tools import shared, jsrun, system_libs
 from tools.shared import execute, suffix, unsuffixed, unsuffixed_basename, WINDOWS, safe_move
@@ -1884,6 +1884,13 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
           ['--sourceRoot', os.getcwd(),
            '--mapFileBaseName', target,
            '--offset', str(0)])
+      if shared.Settings.BROWSIX != 0:
+        smap = open(target + '.map').read()
+        encoded_smap = base64.b64encode(smap)
+        with open(final, 'ab') as f:
+          f.write('\n\n//# sourceMappingURL=data:application/json;base64,')
+          f.write(encoded_smap)
+          f.write('\n')
 
     # Move final output to the js target
     shutil.move(final, js_target)
