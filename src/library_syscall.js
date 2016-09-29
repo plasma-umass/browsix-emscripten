@@ -5,7 +5,7 @@ var SyscallsLibrary = {
 #endif
 #if BROWSIX
 #if EMTERPRETIFY_ASYNC
-                   '$EmterpreterAsync',
+                   '$EmterpreterAsync', '_fflush'
 #endif
 #endif
 #if SYSCALL_DEBUG
@@ -279,6 +279,8 @@ var SyscallsLibrary = {
           return Atomics.load(HEAP32, (waitOff >> 2) + 1);
         };
         USyscalls.prototype.exit = function(code) {
+          // FIXME: this will only work in sync mode.
+          Module['_fflush'](0);
           if (SYSCALLS.browsix.async) {
             this.syscallAsync(null, 'exit', [code]);
           } else {
@@ -411,7 +413,7 @@ var SyscallsLibrary = {
             return;
           }
           SYSCALLS.browsix.async = false;
-          setTimeout(function () { Runtime.process.emit('ready'); }, 0);
+          Runtime.process.emit('ready');
         }
 #endif
       }
