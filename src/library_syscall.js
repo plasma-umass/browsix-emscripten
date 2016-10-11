@@ -5,7 +5,7 @@ var SyscallsLibrary = {
 #endif
 #if BROWSIX
 #if EMTERPRETIFY_ASYNC
-                   '$EmterpreterAsync', '_fflush'
+                   '$EmterpreterAsync', 'fflush',
 #endif
 #endif
 #if SYSCALL_DEBUG
