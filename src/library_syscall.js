@@ -917,7 +917,7 @@ var SyscallsLibrary = {
 #else
       var SYS_MKDIR = 39;
       var path = SYSCALLS.get(), mode = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_ACCESS, path, mode);
+      return SYSCALLS.browsix.syscall.sync(SYS_MKDIR, path, mode);
 #endif
     }
 #endif
