@@ -97,6 +97,7 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     musl_srcdir = shared.path_from_root('system', 'lib', 'libc', 'musl', 'src')
     blacklist = set(
       ['ipc', 'passwd',
+       'getopt_long.c', 'getopt.c',
        'raise.c', 'sigsuspend.c', 'sigtimedwait.c', 'getitimer.c', 'sigpending.c', 'sigqueue.c', 'sigaltstack.c',
        'sched', 'ipc', 'time', 'linux', 'aio', 'exit', 'legacy', 'mq', 'search', 'setjmp', 'env', 'ldso', 'conf'] + # musl modules
       ['fexecve.c', 'posix_spawnattr_destroy.c', 'posix_spawnattr_getflags.c', 'posix_spawnattr_getpgroup.c', 'posix_spawnattr_getsigdefault.c', 'posix_spawnattr_getsigmask.c', 'posix_spawnattr_init.c', 'posix_spawnattr_sched.c', 'posix_spawnattr_setflags.c', 'posix_spawnattr_setpgroup.c', 'posix_spawnattr_setsigdefault.c', 'posix_spawnattr_setsigmask.c', 'posix_spawn.c', 'posix_spawn_file_actions_addclose.c', 'posix_spawn_file_actions_adddup2.c', 'posix_spawn_file_actions_addopen.c', 'posix_spawn_file_actions_destroy.c', 'posix_spawn_file_actions_init.c', 'posix_spawnp.c', 'system.c', 'vfork.c',
