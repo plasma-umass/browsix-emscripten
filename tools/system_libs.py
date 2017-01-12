@@ -182,6 +182,11 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
         'rintf.c'
     ]
 
+    # too many things bundle their own
+    blacklist += [
+      'getopt_long.c', 'getopt.c',
+    ]
+
     if shared.Settings.WASM_BACKEND:
       # With the wasm backend these are included in wasm_libc_rt instead
       blacklist += [
