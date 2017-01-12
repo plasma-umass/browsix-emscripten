@@ -388,34 +388,60 @@ var SyscallsLibrary = {
           return;
         }
 
-        var oldHEAP8 = HEAP8;
-        var b = new SharedArrayBuffer(TOTAL_MEMORY);
-        // copy whatever was in the old guy to here
-        new Int8Array(b).set(oldHEAP8);
-        updateGlobalBuffer(b);
-        updateGlobalBufferViews();
-        asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-        initReceiving();
-        initRuntimeFuncs();
+        if (typeof gc === 'function') gc();
 
-        var PER_BLOCKING = 0x80;
-        // it seems malloc overflows into our static allocation, so
-        // just reserve that, throw it away, and never use it.  The
-        // first number is in bytes, no matter what the 'i*' specifier
-        // is :\
-        getMemory(1024);
-        var waitOff = getMemory(1024) + 512;
-        getMemory(1024);
-        SYSCALLS.browsix.waitOff = waitOff;
-        SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                              [PER_BLOCKING, buffer, waitOff], [buffer]);
-        function personalityChanged(err) {
-          if (err) {
-            console.log('personality: ' + err);
+        setTimeout(init2, 10);
+        function init2(attempt) {
+          if (!attempt)
+            attempt = 0;
+
+          if (typeof gc === 'function') gc();
+
+          var oldHEAP8 = HEAP8;
+          var b = null;
+          try {
+            b = new SharedArrayBuffer(TOTAL_MEMORY);
+          } catch (e) {
+            if (attempt > 5)
+              throw e;
+
+            attempt++;
+            console.log('couldnt allocate SharedArrayBuffer(' + TOTAL_MEMORY + '), retrying');
+
+            if (typeof gc === 'function') gc();
+            setTimeout(init2, 200*attempt, attempt);
+            if (typeof gc === 'function') gc();
+
             return;
           }
-          SYSCALLS.browsix.async = false;
-          Runtime.process.emit('ready');
+          console.log('successfully allocated ' + TOTAL_MEMORY);
+          // copy whatever was in the old guy to here
+          new Int8Array(b).set(oldHEAP8);
+          updateGlobalBuffer(b);
+          updateGlobalBufferViews();
+          asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          initReceiving();
+          initRuntimeFuncs();
+
+          var PER_BLOCKING = 0x80;
+          // it seems malloc overflows into our static allocation, so
+          // just reserve that, throw it away, and never use it.  The
+          // first number is in bytes, no matter what the 'i*' specifier
+          // is :\
+          getMemory(1024);
+          var waitOff = getMemory(1024) + 512;
+          getMemory(1024);
+          SYSCALLS.browsix.waitOff = waitOff;
+          SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                                [PER_BLOCKING, buffer, waitOff], [buffer]);
+          function personalityChanged(err) {
+            if (err) {
+              console.log('personality: ' + err);
+              return;
+            }
+            SYSCALLS.browsix.async = false;
+            Runtime.process.emit('ready');
+          }
         }
 #endif
       }
