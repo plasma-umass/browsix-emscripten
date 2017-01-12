@@ -1119,6 +1119,14 @@ if (totalMemory !== TOTAL_MEMORY) {
   TOTAL_MEMORY = totalMemory;
 }
 
+#if BROWSIX
+#if !EMTERPRETIFY_ASYNC
+var REAL_TOTAL_MEMORY = TOTAL_MEMORY;
+TOTAL_MEMORY = 16*1024*1024;
+#endif
+#endif
+
+
 // Initialize the runtime's memory
 #if ASSERTIONS
 // check for full engine support (use string 'subarray' to avoid closure compiler confusion)

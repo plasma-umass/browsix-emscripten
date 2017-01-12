@@ -390,7 +390,7 @@ var SyscallsLibrary = {
 
         if (typeof gc === 'function') gc();
 
-        setTimeout(init2, 10);
+        init2();
         function init2(attempt) {
           if (!attempt)
             attempt = 0;
@@ -400,21 +400,26 @@ var SyscallsLibrary = {
           var oldHEAP8 = HEAP8;
           var b = null;
           try {
-            b = new SharedArrayBuffer(TOTAL_MEMORY);
+            b = new SharedArrayBuffer(REAL_TOTAL_MEMORY);
           } catch (e) {
-            if (attempt > 5)
+            if (attempt >= 16)
               throw e;
 
-            attempt++;
-            console.log('couldnt allocate SharedArrayBuffer(' + TOTAL_MEMORY + '), retrying');
+            console.log('couldnt allocate SharedArrayBuffer(' + REAL_TOTAL_MEMORY + '), retrying');
+
+            var delay = 200*attempt;
+            if (delay > 2000)
+              delay = 2000;
 
             if (typeof gc === 'function') gc();
-            setTimeout(init2, 200*attempt, attempt);
+            setTimeout(init2, delay, attempt+1);
             if (typeof gc === 'function') gc();
 
             return;
           }
-          console.log('successfully allocated ' + TOTAL_MEMORY);
+          TOTAL_MEMORY = REAL_TOTAL_MEMORY;
+          REAL_TOTAL_MEMORY = undefined;
+
           // copy whatever was in the old guy to here
           new Int8Array(b).set(oldHEAP8);
           updateGlobalBuffer(b);
@@ -432,8 +437,18 @@ var SyscallsLibrary = {
           var waitOff = getMemory(1024) + 512;
           getMemory(1024);
           SYSCALLS.browsix.waitOff = waitOff;
-          SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                                [PER_BLOCKING, buffer, waitOff], [buffer]);
+
+          // the original spec called for buffer to be in the transfer
+          // list, but the current spec (and dev versions of Chrome)
+          // don't support that.  Try it the old way, and if it
+          // doesn't work try it the new way.
+          try {
+            SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                                  [PER_BLOCKING, buffer, waitOff], [buffer]);
+          } catch (e) {
+            SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                                  [PER_BLOCKING, buffer, waitOff], []);
+          }
           function personalityChanged(err) {
             if (err) {
               console.log('personality: ' + err);
