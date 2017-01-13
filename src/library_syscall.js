@@ -279,6 +279,13 @@ var SyscallsLibrary = {
           return Atomics.load(HEAP32, (waitOff >> 2) + 1);
         };
         USyscalls.prototype.exit = function(code) {
+          if (Runtime.process && Runtime.process.env && Runtime.process.env['BROWSIX_PERF']) {
+            var binary = Runtime.process.env['BROWSIX_PERF'];
+            console.log('PERF: stop ' + binary);
+            var stopXhr = new XMLHttpRequest();
+            stopXhr.open('GET', 'http://localhost:9000/stop?binary=' + binary, false);
+            stopXhr.send();
+          }
           // FIXME: this will only work in sync mode.
           Module['_fflush'](0);
           if (SYSCALLS.browsix.async) {
@@ -455,6 +462,13 @@ var SyscallsLibrary = {
               return;
             }
             SYSCALLS.browsix.async = false;
+            if (Runtime.process && Runtime.process.env && Runtime.process.env['BROWSIX_PERF']) {
+              var binary = Runtime.process.env['BROWSIX_PERF'];
+              console.log('PERF: start ' + binary);
+              var stopXhr = new XMLHttpRequest();
+              stopXhr.open('GET', 'http://localhost:9000/start?binary=' + binary, false);
+              stopXhr.send();
+            }
             Runtime.process.emit('ready');
           }
         }
