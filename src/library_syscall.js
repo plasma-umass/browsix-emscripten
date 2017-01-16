@@ -278,6 +278,29 @@ var SyscallsLibrary = {
           Atomics.store(HEAP32, waitOff >> 2, 0);
           return Atomics.load(HEAP32, (waitOff >> 2) + 1);
         };
+        USyscalls.prototype.usleep = function(useconds) {
+          // int usleep(useconds_t useconds);
+          // http://pubs.opengroup.org/onlinepubs/000095399/functions/usleep.html
+          var msec = useconds / 1000;
+          var target = performance.now() + msec;
+          var waitOff = SYSCALLS.browsix.waitOff;
+
+          var paranoid = Atomics.load(HEAP32, (waitOff >> 2)+8);
+          if (paranoid !== 0) {
+            Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
+          }
+
+          Atomics.store(HEAP32, (waitOff >> 2)+8, 0);
+
+          var msecsToSleep;
+          while (performance.now() < target) {
+            msecsToSleep = target - performance.now();
+            if (msecsToSleep > 0) {
+              Atomics.wait(HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
+            }
+          }
+          return 0;
+        };
         USyscalls.prototype.exit = function(code) {
           if (Runtime.process && Runtime.process.env && Runtime.process.env['BROWSIX_PERF']) {
             var binary = Runtime.process.env['BROWSIX_PERF'];
@@ -294,7 +317,7 @@ var SyscallsLibrary = {
             this.sync(252 /* SYS_exit_group */, code);
           }
           close();
-        }
+        };
         USyscalls.prototype.addEventListener = function (type, handler) {
           if (!handler)
             return;

@@ -2429,7 +2429,11 @@ LibraryManager.library = {
       {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_sec, '0', 'i32') }}};
       {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_nsec, '0', 'i32') }}};
     }
+#if BROWSIX
+    return SYSCALLS.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
+#else
     return _usleep((seconds * 1e6) + (nanoseconds / 1000));
+#endif
   },
   clock_gettime__deps: ['emscripten_get_now', 'emscripten_get_now_is_monotonic', '$ERRNO_CODES', '__setErrNo'],
   clock_gettime: function(clk_id, tp) {
