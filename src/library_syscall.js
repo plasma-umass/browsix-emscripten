@@ -454,7 +454,10 @@ var SyscallsLibrary = {
           new Int8Array(b).set(oldHEAP8);
           updateGlobalBuffer(b);
           updateGlobalBufferViews();
-          asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          if (typeof asmModule !== 'undefined')
+            asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          else
+            asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
           initReceiving();
           initRuntimeFuncs();
 
