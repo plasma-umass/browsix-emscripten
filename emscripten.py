@@ -850,7 +850,7 @@ function ftCall_%s(%s) {%s
       # Unofficial, Bool64x2 does not yet exist, but needed for Float64x2 comparisons.
       if metadata['simdFloat64x2']:
         asm_global_funcs += '  var SIMD_Int32x4_fromBool64x2Bits = global.SIMD.Int32x4.fromBool64x2Bits;\n'
-    if settings['USE_PTHREADS']:
+    if settings['USE_PTHREADS'] or (settings['BROWSIX'] and not settings['EMTERPRETIFY_ASYNC']):
       asm_global_funcs += ''.join(['  var Atomics_' + ty + '=global' + access_quote('Atomics') + access_quote(ty) + ';\n' for ty in ['load', 'store', 'exchange', 'compareExchange', 'add', 'sub', 'and', 'or', 'xor']])
     asm_global_vars = ''.join(['  var ' + g + '=env' + access_quote(g) + '|0;\n' for g in basic_vars + global_vars])
 
@@ -1238,9 +1238,17 @@ function _emscripten_replace_memory(newBuffer) {
   return %s;
 });
 // EMSCRIPTEN_END_ASM
-if (!ENVIRONMENT_IS_BROWSIX)
+if (!ENVIRONMENT_IS_BROWSIX) {
+  if (typeof asmModule !== 'undefined')
     asm = asmModule(%s, %s, buffer);
+  else
+    asm = asm(%s, %s, buffer);
+} else {
+  if (typeof SharedArrayBuffer !== 'undefined') Module.asmGlobalArg['Atomics'] = Atomics;
+}
 ''' % (exports,
+       'Module' + access_quote('asmGlobalArg'),
+       'Module' + access_quote('asmLibraryArg'),
        'Module' + access_quote('asmGlobalArg'),
        'Module' + access_quote('asmLibraryArg')), '''
 ''', receiving_decls, '''
@@ -1577,7 +1585,7 @@ return real_''' + asmjs_mangle(s) + '''.apply(null, arguments);
 
   # finalize
 
-  if settings['USE_PTHREADS']:
+  if settings['USE_PTHREADS'] or (settings['BROWSIX'] and not settings['EMTERPRETIFY_ASYNC']):
     shared_array_buffer = "if (typeof SharedArrayBuffer !== 'undefined') Module.asmGlobalArg['Atomics'] = Atomics;"
   else:
     shared_array_buffer = ''
