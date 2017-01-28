@@ -391,6 +391,13 @@ var SyscallsLibrary = {
 
           assert(HEAP32.buffer === Runtime.process.parentBuffer);
 
+          if (typeof asmModule !== 'undefined')
+            asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          else
+            asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          initReceiving();
+          initRuntimeFuncs();
+
           asm.stackRestore(forkArgs.stackSave);
           asm.emtStackRestore(forkArgs.emtStackTop);
         }
@@ -402,6 +409,14 @@ var SyscallsLibrary = {
 
 #if EMTERPRETIFY_ASYNC
         SYSCALLS.browsix.async = true;
+        if (typeof asm['_main'] === 'undefined') {
+          if (typeof asmModule !== 'undefined')
+            asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          else
+            asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+        }
+        initReceiving();
+        initRuntimeFuncs();
         setTimeout(function () { Runtime.process.emit('ready'); }, 0);
 #else
         if (typeof SharedArrayBuffer !== 'function') {
