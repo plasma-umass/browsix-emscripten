@@ -40,6 +40,8 @@ class AsmModule():
 
     # imports (and global variables)
     first_var = self.js.find('var ', self.js.find('var ', self.start_asm)+4)
+    if self.js[first_var+4:].startswith('asmModule'):
+      first_var = self.js.find('var ', first_var+4)
     self.pre_imports_js = self.js[self.start_asm:first_var]
     self.imports_js = self.js[first_var:self.start_funcs]
     self.imports = {}
