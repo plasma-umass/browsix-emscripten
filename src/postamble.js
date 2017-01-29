@@ -273,9 +273,16 @@ function exit(status, implicit) {
   if (ENVIRONMENT_IS_BROWSIX) {
     EXITSTATUS = status;
     Runtime.process.exit(status);
-    // this will terminate the worker's execution as an uncaught
-    // Exception, which is what we want.
-    throw new ExitStatus(status);
+    var ua = navigator.appVersion;
+    if (ua.includes('Safari/') && !ua.includes('Chrom')) {
+      // WebKit doesn't like ExitStatus being thrown, but this
+      // infinite loop severly hurts perf on non-webkit browsers.
+      for (;;) {}
+    } else {
+      // this will terminate the worker's execution as an uncaught
+      // Exception, which is what we want.
+      throw new ExitStatus(status);
+    }
   }
 #endif
 
