@@ -409,7 +409,7 @@ var SyscallsLibrary = {
 
 #if EMTERPRETIFY_ASYNC
         SYSCALLS.browsix.async = true;
-        if (typeof asm['_main'] === 'undefined') {
+        if (!asm || typeof asm['_main'] === 'undefined') {
           if (typeof asmModule !== 'undefined')
             asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
           else
