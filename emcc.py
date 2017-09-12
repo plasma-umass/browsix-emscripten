@@ -683,7 +683,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       if type(options.llvm_opts) == int:
         options.llvm_opts = ['-O%d' % options.llvm_opts]
       if options.memory_init_file is None:
-        options.memory_init_file = options.opt_level >= 2
+        options.memory_init_file = options.opt_level >= 2 and shared.Settings.BROWSIX == 0
 
       # TODO: support source maps with js_transform
       if options.js_transform and options.debug_level >= 4:
