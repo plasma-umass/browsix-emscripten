@@ -59,11 +59,13 @@ var ENVIRONMENT_IS_WEB = {{{ ENVIRONMENT === 'web' }}};
 var ENVIRONMENT_IS_WORKER = {{{ ENVIRONMENT === 'worker' }}};
 var ENVIRONMENT_IS_NODE = {{{ ENVIRONMENT === 'node' }}};
 var ENVIRONMENT_IS_SHELL = {{{ ENVIRONMENT === 'shell' }}};
+var ENVIRONMENT_IS_BROWSIX = {{{ ENVIRONMENT === 'browsix' }}};
 #else // ENVIRONMENT
 var ENVIRONMENT_IS_WEB = false;
 var ENVIRONMENT_IS_WORKER = false;
 var ENVIRONMENT_IS_NODE = false;
 var ENVIRONMENT_IS_SHELL = false;
+var ENVIRONMENT_IS_BROWSIX = false;
 ENVIRONMENT_IS_WEB = typeof window === 'object';
 ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
 ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof require === 'function' && !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_WORKER;
