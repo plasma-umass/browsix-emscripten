@@ -62,6 +62,10 @@ if (Module['ENVIRONMENT']) {
   ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
   ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof require === 'function' && !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_WORKER;
   ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
+#if BROWSIX
+  ENVIRONMENT_IS_BROWSIX = ENVIRONMENT_IS_WORKER;
+  ENVIRONMENT_IS_WORKER = false;
+#endif
 }
 
 #if USE_PTHREADS
@@ -166,7 +170,7 @@ else if (ENVIRONMENT_IS_SHELL) {
   eval("if (typeof gc === 'function' && gc.toString().indexOf('[native code]') > 0) var gc = undefined"); // wipe out the SpiderMonkey shell 'gc' function, which can confuse closure (uses it as a minified name, and it is then initted to a non-falsey value unexpectedly)
 #endif
 }
-else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER || ENVIRONMENT_IS_BROWSIX) {
   Module['read'] = function shell_read(url) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, false);
@@ -208,6 +212,10 @@ else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
       console.log(x);
     };
     if (!Module['printErr']) Module['printErr'] = function shell_printErr(x) {
+#if BROWSIX
+      if (ENVIRONMENT_IS_BROWSIX)
+        debugger;
+#endif
       console.warn(x);
     };
   } else {
