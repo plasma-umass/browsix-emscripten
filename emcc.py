@@ -28,7 +28,8 @@ from tools.toolchain_profiler import ToolchainProfiler
 if __name__ == '__main__':
   ToolchainProfiler.record_process_start()
 
-import os, sys, shutil, tempfile, subprocess, shlex, time, re, logging
+import os, sys, shutil, tempfile, subprocess, shlex, time, re, logging, urllib
+import stat
 from subprocess import PIPE
 from tools import shared, jsrun, system_libs
 from tools.shared import execute, suffix, unsuffixed, unsuffixed_basename, WINDOWS, safe_copy, safe_move, run_process, asbytes
@@ -567,6 +568,10 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
   if '.' in target:
     final_suffix = target.split('.')[-1]
+  elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
+    final_suffix = 'wasm'
+  elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
+    final_suffix = 'js'
   else:
     final_suffix = ''
 
@@ -683,7 +688,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       if type(options.llvm_opts) == int:
         options.llvm_opts = ['-O%d' % options.llvm_opts]
       if options.memory_init_file is None:
-        options.memory_init_file = options.opt_level >= 2 and shared.Settings.BROWSIX == 0
+        options.memory_init_file = options.opt_level >= 2 and not shared.Settings.BROWSIX
 
       # TODO: support source maps with js_transform
       if options.js_transform and options.debug_level >= 4:
@@ -823,6 +828,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
       # target is now finalized, can finalize other _target s
       js_target = unsuffixed(target) + '.js'
+      if shared.Settings.BROWSIX and (js_target == '.js' or js_target == '.wasm'):
+        js_target = target
 
       asm_target = unsuffixed(js_target) + '.asm.js' # might not be used, but if it is, this is the name
       wasm_text_target = asm_target.replace('.asm.js', '.wast') # ditto, might not be used
@@ -1909,6 +1916,12 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # The JS is now final. Move it to its final location
       shutil.move(final, js_target)
 
+      if shared.Settings.BROWSIX:
+        try:
+          os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR) # make executable
+        except Exception as e:
+          pass # can fail if e.g. writing the executable to /dev/null
+
       generated_text_files_with_native_eols += [js_target]
 
       # If we were asked to also generate HTML, do that
@@ -2271,6 +2284,13 @@ def emit_js_source_maps(target, js_transform_tempfiles):
       ['--sourceRoot', os.getcwd(),
         '--mapFileBaseName', target,
         '--offset', str(0)])
+  if shared.Settings.BROWSIX:
+    source_map = open(target + '.map').read()
+    encoded_source_map = base64.b64encode(source_map)
+    with open(final, 'ab') as f:
+      f.write('\n\n//# sourceMappingURL=data:application/json;base64,')
+      f.write(encoded_source_map)
+      f.write('\n')
 
 
 def separate_asm_js(final, asm_target):
