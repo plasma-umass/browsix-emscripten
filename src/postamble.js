@@ -468,11 +468,36 @@ if (Module['noInitialRun']) {
 Module["noExitRuntime"] = true;
 #endif
 
+#if BROWSIX
+if (ENVIRONMENT_IS_BROWSIX) {
+  //self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+  self.onmessage = function() { console.log('TODO: handle browsix init'); }
+  Runtime.process.once('ready', function() {
+    Module['thisProgram'] = Runtime.process.argv[0];
+    for (var k in Runtime.process.env) {
+      if (!Runtime.process.env.hasOwnProperty(k))
+        continue;
+      ENV[k] = Runtime.process.env[k];
+    }
+    ENV = Runtime.process.env;
+    ENV['_'] = Runtime.process.argv[0];
+
+    if (Runtime.process.pid) {
+      abort('TODO: sync post-fork?');
+    } else {
+      run(Runtime.process.argv.slice(2));
+    }
+  });
+} else if (typeof ENVIRONMENT_IS_PTHREAD === 'undefined' || !ENVIRONMENT_IS_PTHREAD) {
+  run();
+}
+#else
 #if USE_PTHREADS
 if (!ENVIRONMENT_IS_PTHREAD) run();
 #else
 run();
-#endif
+#endif // USE_PTHREADS
+#endif // BROWSIX
 
 // {{POST_RUN_ADDITIONS}}
 

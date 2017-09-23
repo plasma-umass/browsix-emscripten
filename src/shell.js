@@ -76,6 +76,10 @@ if (Module['ENVIRONMENT']) {
   ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
   ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof require === 'function' && !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_WORKER;
   ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
+#if BROWSIX
+  ENVIRONMENT_IS_BROWSIX = ENVIRONMENT_IS_WORKER;
+  ENVIRONMENT_IS_WORKER = false;
+#endif
 }
 
 #if USE_PTHREADS
@@ -191,7 +195,7 @@ else if (ENVIRONMENT_IS_SHELL) {
     }
   }
 }
-else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER || ENVIRONMENT_IS_BROWSIX) {
   Module['read'] = function shell_read(url) {
 #if SUPPORT_BASE64_EMBEDDING
     try {
