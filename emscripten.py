@@ -1256,6 +1256,8 @@ def create_asm_runtime_funcs(settings):
     funcs += ['emterpret']
     if settings.get('EMTERPRETIFY_ASYNC'):
       funcs += ['setAsyncState', 'emtStackSave', 'emtStackRestore']
+      if settings['BROWSIX']:
+        funcs += ['update_heap']
   return funcs
 
 
