@@ -137,6 +137,8 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     # like the standard library. This can cause unexpected bugs when we use our
     # custom standard library. The same for other libc/libm builds.
     args = ['-Os', '-fno-builtin']
+    # fix sourcemap inlining with Browsix
+    args += ['-g4']
     if shared.Settings.USE_PTHREADS:
       args += ['-s', 'USE_PTHREADS=1']
       assert '-mt' in libname
