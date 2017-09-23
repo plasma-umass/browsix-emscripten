@@ -215,6 +215,8 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     # custom standard library. The same for other libc/libm builds.
     args = ['-Os', '-fno-builtin']
     args += threading_flags(libname)
+    # fix sourcemap inlining with Browsix
+    args += ['-g4']
     return build_libc(libname, libc_files, args)
 
   def create_pthreads(libname):

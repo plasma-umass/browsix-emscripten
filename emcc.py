@@ -27,6 +27,7 @@ emcc can be influenced by a few environment variables:
 
 from __future__ import print_function
 
+import base64
 import json
 import logging
 import os
@@ -663,7 +664,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     final_suffix = target.split('.')[-1]
   elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
     final_suffix = 'wasm'
-  elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
+  elif shared.Settings.BROWSIX:
     final_suffix = 'js'
   else:
     final_suffix = ''
@@ -2090,10 +2091,21 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       shutil.move(final, js_target)
 
       if shared.Settings.BROWSIX:
-        try:
-          os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR) # make executable
-        except Exception as e:
-          pass # can fail if e.g. writing the executable to /dev/null
+        if final_suffix in EXECUTABLE_SUFFIXES and target != js_target:
+          with open(target, 'w') as f:
+            f.write('''#!/bin/sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+node $DIR/%s
+''' % js_target)
+          import stat
+          try:
+            # make targets executable
+            os.chmod(target, stat.S_IMODE(os.stat(target).st_mode) | stat.S_IXUSR)
+            os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR)
+          except Exception as e:
+            pass # can fail if e.g. writing the executable to /dev/null
+
 
       generated_text_files_with_native_eols += [js_target]
 
@@ -2460,15 +2472,18 @@ def emterpretify(js_target, optimizer, options):
 
 def emit_js_source_maps(target, js_transform_tempfiles):
   logger.debug('generating source maps')
+  args = ['--sourceRoot', os.getcwd(),
+        '--mapFileBaseName', target,
+        '--offset', '0']
+  if shared.Settings.BROWSIX:
+    args += ['--noMappingURL', '1']
   jsrun.run_js_tool(shared.path_from_root('tools', 'source-maps', 'sourcemapper.js'),
-                    shared.NODE_JS, js_transform_tempfiles +
-                    ['--sourceRoot', os.getcwd(),
-                     '--mapFileBaseName', target,
-                     '--offset', '0'])
+                    shared.NODE_JS, js_transform_tempfiles + args)
   if shared.Settings.BROWSIX:
     source_map = open(target + '.map').read()
     encoded_source_map = base64.b64encode(source_map)
-    with open(final, 'ab') as f:
+    assert len(js_transform_tempfiles) == 1
+    with open(js_transform_tempfiles[0], 'ab') as f:
       f.write('\n\n//# sourceMappingURL=data:application/json;base64,')
       f.write(encoded_source_map)
       f.write('\n')
