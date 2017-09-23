@@ -27,8 +27,7 @@ from tools.toolchain_profiler import ToolchainProfiler, exit
 if __name__ == '__main__':
   ToolchainProfiler.record_process_start()
 
-import os, sys, shutil, tempfile, subprocess, shlex, time, re, logging, urllib
-import stat
+import base64, os, sys, shutil, tempfile, subprocess, shlex, time, re, logging, urllib
 from subprocess import PIPE
 from tools import shared, jsrun, system_libs
 from tools.shared import execute, suffix, unsuffixed, unsuffixed_basename, WINDOWS, safe_move
@@ -547,7 +546,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     final_suffix = target.split('.')[-1]
   elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
     final_suffix = 'wasm'
-  elif shared.Settings.BROWSIX and (shared.Settings.WASM or shared.Settings.BINARYEN):
+  elif shared.Settings.BROWSIX:
     final_suffix = 'js'
   else:
     final_suffix = ''
@@ -1825,10 +1824,21 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       shutil.move(final, js_target)
 
       if shared.Settings.BROWSIX:
-        try:
-          os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR) # make executable
-        except Exception as e:
-          pass # can fail if e.g. writing the executable to /dev/null
+        if final_suffix in EXECUTABLE_SUFFIXES and target != js_target:
+          with open(target, 'w') as f:
+            f.write('''#!/bin/sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+node $DIR/%s
+''' % js_target)
+          import stat
+          try:
+            # make targets executable
+            os.chmod(target, stat.S_IMODE(os.stat(target).st_mode) | stat.S_IXUSR)
+            os.chmod(js_target, stat.S_IMODE(os.stat(js_target).st_mode) | stat.S_IXUSR)
+          except Exception as e:
+            pass # can fail if e.g. writing the executable to /dev/null
+
 
       generated_text_files_with_native_eols += [js_target]
 
@@ -2187,15 +2197,18 @@ def emterpretify(js_target, optimizer, options):
 
 def emit_js_source_maps(target, js_transform_tempfiles):
   logging.debug('generating source maps')
-  jsrun.run_js(shared.path_from_root('tools', 'source-maps', 'sourcemapper.js'),
-    shared.NODE_JS, js_transform_tempfiles +
-      ['--sourceRoot', os.getcwd(),
+  args = ['--sourceRoot', os.getcwd(),
         '--mapFileBaseName', target,
-        '--offset', str(0)])
+        '--offset', str(0)]
+  if shared.Settings.BROWSIX:
+    args += ['--noMappingURL', str(1)]
+  jsrun.run_js(shared.path_from_root('tools', 'source-maps', 'sourcemapper.js'),
+               shared.NODE_JS, js_transform_tempfiles + args)
   if shared.Settings.BROWSIX:
     source_map = open(target + '.map').read()
     encoded_source_map = base64.b64encode(source_map)
-    with open(final, 'ab') as f:
+    assert len(js_transform_tempfiles) == 1
+    with open(js_transform_tempfiles[0], 'ab') as f:
       f.write('\n\n//# sourceMappingURL=data:application/json;base64,')
       f.write(encoded_source_map)
       f.write('\n')
