@@ -375,6 +375,24 @@ function exit(status, implicit) {
     return;
   }
 
+#if BROWSIX
+  // we don't care about noExitRuntime for explicit exit calls in Browsix()
+  if (ENVIRONMENT_IS_BROWSIX) {
+    EXITSTATUS = status;
+    Runtime.process.exit(status);
+    var ua = navigator.appVersion;
+    if (ua.includes('Safari/') && !ua.includes('Chrom')) {
+      // WebKit doesn't like ExitStatus being thrown, but this
+      // infinite loop severly hurts perf on non-webkit browsers.
+      for (;;) {}
+    } else {
+      // this will terminate the worker's execution as an uncaught
+      // Exception, which is what we want.
+      throw new ExitStatus(status);
+    }
+  }
+#endif
+
   if (Module['noExitRuntime']) {
 #if ASSERTIONS
     // if exit() was called, we may warn the user if the runtime isn't actually being shut down
