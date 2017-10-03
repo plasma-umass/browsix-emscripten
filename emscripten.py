@@ -2139,7 +2139,7 @@ def create_module_wasm(sending, receiving, invoke_funcs, jscall_sigs,
   invoke_wrappers = create_invoke_wrappers(invoke_funcs)
   jscall_funcs = create_jscall_funcs(jscall_sigs)
 
-  if shared.Settings.USE_PTHREADS and not shared.Settings.WASM:
+  if (settings['USE_PTHREADS'] and not settings['WASM']) or settings['BROWSIX']:
     shared_array_buffer = "if (typeof SharedArrayBuffer !== 'undefined') Module.asmGlobalArg['Atomics'] = Atomics;"
   else:
     shared_array_buffer = ''
