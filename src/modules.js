@@ -130,7 +130,7 @@ var LibraryManager = {
     }
 
     // Additional JS libraries (in strict mode, link to these explicitly via -lxxx.js)
-    if (!STRICT) {
+    if (!STRICT && !BROWSIX) {
       libraries = libraries.concat([
         'library_sdl.js',
         'library_gl.js',
@@ -144,6 +144,12 @@ var LibraryManager = {
         'library_idbstore.js',
         'library_async.js',
         'library_vr.js'
+      ]);
+    }
+
+    if (BROWSIX) {
+      libraries = libraries.concat([
+        'library_browsix.js'
       ]);
     }
 
