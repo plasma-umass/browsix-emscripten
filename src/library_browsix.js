@@ -1,17 +1,14 @@
 var BrowsixLibrary = {
   $SYSCALLS__deps: [
-#if BROWSIX
 #if EMTERPRETIFY_ASYNC
                    '$EmterpreterAsync', 'fflush',
-#endif
 #endif
 #if SYSCALL_DEBUG
                    '$ERRNO_MESSAGES',
 #endif
                    '$ENV',
   ],
-  $SYSCALLS: {
-#if BROWSIX
+  $BROWSIX: {
     browsix: (function() {
       var exports = {};
 
@@ -321,41 +318,35 @@ var BrowsixLibrary = {
 
       return exports;
     }()),
-#endif // BROWSIX
   },
-/*
   __syscall1: function(which, varargs) { // exit
     var status = SYSCALLS.get();
     Module['exit'](status);
     return 0;
   },
   __syscall2: function(which, varargs) { // fork
-#if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX) {
 #if EMTERPRETIFY_ASYNC
-      return EmterpreterAsync.handle(function(resume) {
-        var pc = HEAP32[EMTSTACKTOP>>2];
+    return EmterpreterAsync.handle(function(resume) {
+      var pc = HEAP32[EMTSTACKTOP>>2];
 
-        var args = {
-          pc: HEAP32[EMTSTACKTOP>>2],
-          stackSave: asm.stackSave(),
-          emtStackTop: EMTSTACKTOP,
-        }
+      var args = {
+        pc: HEAP32[EMTSTACKTOP>>2],
+        stackSave: asm.stackSave(),
+        emtStackTop: EMTSTACKTOP,
+      }
 
-        var done = function(ret) {
-          resume(function() {
-            return ret;
-          });
-        };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
-      });
+      var done = function(ret) {
+        resume(function() {
+          return ret;
+        });
+      };
+      SYSCALLS.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
+    });
 #else
-      abort('fork not supported in sync Browsix');
+    abort('TODO: fork not currently supported in sync Browsix');
 #endif
-    }
-#endif
-    abort('fork not supported without Browsix');
   },
+  /*
   __syscall3: function(which, varargs) { // read
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
