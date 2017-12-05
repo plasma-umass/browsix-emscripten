@@ -194,8 +194,18 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
 #endif
 
+#if BROWSIX
+#if EMTERPRETIFY_ASYNC
+    if (ENVIRONMENT_IS_BROWSIX && EmterpreterAsync.state !== 1)
+      exit(ret, /* implicit = */ true);
+#else
     // if we're not running an evented main loop, it's time to exit
     exit(ret, /* implicit = */ true);
+#endif
+#else
+    // if we're not running an evented main loop, it's time to exit
+    exit(ret, /* implicit = */ true);
+#endif
   }
   catch(e) {
     if (e instanceof ExitStatus) {
@@ -400,8 +410,9 @@ Module["noExitRuntime"] = true;
 
 #if BROWSIX
 if (ENVIRONMENT_IS_BROWSIX) {
-  //self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
-  self.onmessage = function() { console.log('TODO: handle browsix init'); }
+  var ENV={};
+  self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+  //self.onmessage = function() { console.log('TODO: handle browsix init'); }
   Runtime.process.once('ready', function() {
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {

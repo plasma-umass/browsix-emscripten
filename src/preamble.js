@@ -1036,6 +1036,17 @@ function updateGlobalBufferViews() {
   // needed when run under emterpreter.
   if (typeof asm !== 'undefined' && asm.update_heap)
     asm.update_heap();
+  else
+  {
+    HEAP8 = Module['HEAP8'];
+    HEAP16 = Module['HEAP16'];
+    HEAP32 = Module['HEAP32'];
+    HEAPU8 = Module['HEAPU8'];
+    HEAPU16 = Module['HEAPU16'];
+    HEAPU32 = Module['HEAPU32'];
+    HEAPF32 = Module['HEAPF32'];
+    HEAPF64 = Module['HEAPF64'];
+  }
 #endif
 }
 
@@ -1213,6 +1224,13 @@ try {
 var TOTAL_STACK = Module['TOTAL_STACK'] || {{{ TOTAL_STACK }}};
 var TOTAL_MEMORY = Module['TOTAL_MEMORY'] || {{{ TOTAL_MEMORY }}};
 if (TOTAL_MEMORY < TOTAL_STACK) Module.printErr('TOTAL_MEMORY should be larger than TOTAL_STACK, was ' + TOTAL_MEMORY + '! (TOTAL_STACK=' + TOTAL_STACK + ')');
+
+#if BROWSIX
+#if !EMTERPRETIFY_ASYNC
+var REAL_TOTAL_MEMORY = TOTAL_MEMORY;
+TOTAL_MEMORY = 16*1024*1024;
+#endif
+#endif
 
 // Initialize the runtime's memory
 #if ASSERTIONS

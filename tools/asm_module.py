@@ -9,6 +9,7 @@ class AsmModule():
     self.filename = filename
     self.js = open(filename).read()
 
+    print "js_optimizer.start_asm_marker", js_optimizer.start_asm_marker
     self.start_asm = self.js.find(js_optimizer.start_asm_marker)
     self.start_funcs = self.js.find(js_optimizer.start_funcs_marker)
     self.end_funcs = self.js.rfind(js_optimizer.end_funcs_marker)
@@ -49,7 +50,9 @@ class AsmModule():
         key, value = imp.split('=', 1)
         self.imports[key.strip()] = value.strip()
       else:
+        print "IMP", imp
         for part in imp.split(','):
+          print "PART", part 
           assert part.count('(') == part.count(')') # we must not break ',' in func(x, y)!
           assert part.count('=') == 1
           key, value = part.split('=', 1)
@@ -265,6 +268,7 @@ class AsmModule():
     parts = js.split(';')
     for part in parts:
       if '=' not in part: continue
+      print part
       part = part.split('var ')[1]
       name, data = part.split('=', 1)
       tables[name.strip()] = data.strip()
