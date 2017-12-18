@@ -254,7 +254,7 @@ var SyscallsLibrary = {
         }
         USyscalls.prototype.syscallAsync = function (cb, name, args, transferrables) {
 #if WASM
-          new Uint8Array(browsix_HEAP32).set(HEAP32);
+          new Uint8Array(browsix_buffer).set(HEAP8);
 #endif
           var msgId = this.nextMsgId();
           this.outstanding[msgId] = cb;
@@ -293,7 +293,9 @@ var SyscallsLibrary = {
 #if WASM
           Atomics.wait(browsix_HEAP32, waitOff >> 2, 0);
           Atomics.store(browsix_HEAP32, waitOff >> 2, 0);
-          return Atomics.load(browsix_HEAP32, (waitOff >> 2) + 1);
+          var p = Atomics.load(browsix_HEAP32, (waitOff >> 2) + 1);
+          new Uint8Array (buffer).set (new Uint8Array (browsix_buffer));
+          return p;
 #else
           Atomics.wait(HEAP32, waitOff >> 2, 0);
           Atomics.store(HEAP32, waitOff >> 2, 0);
@@ -308,9 +310,9 @@ var SyscallsLibrary = {
           var waitOff = SYSCALLS.browsix.waitOff;
 #if WASM
           new Uint8Array (browsix_buffer).set (HEAP8);
-          var paranoid = Atomics.load(HEAP32, (waitOff >> 2)+8);
-#else
           var paranoid = Atomics.load(browsix_HEAP32, (waitOff >> 2)+8);
+#else
+          var paranoid = Atomics.load(HEAP32, (waitOff >> 2)+8);
 #endif
 
           if (paranoid !== 0) {
@@ -328,9 +330,9 @@ var SyscallsLibrary = {
             msecsToSleep = target - performance.now();
             if (msecsToSleep > 0) {
 #if WASM
-              Atomics.store(browsix_HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
+              Atomics.wait(browsix_HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
 #else
-              Atomics.store(HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
+              Atomics.wait(HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
 #endif
             }
           }
