@@ -1,5 +1,5 @@
 var BrowsixLibrary = {
-  $SYSCALLS__deps: [
+  $BROWSIX__deps: [
 #if EMTERPRETIFY_ASYNC
                    '$EmterpreterAsync', 'fflush',
 #endif

@@ -149,7 +149,7 @@ var LibraryManager = {
 
     if (BROWSIX) {
       libraries = libraries.concat([
-        'library_browsix.js'
+        'library_browsix.js',
       ]);
     }
 

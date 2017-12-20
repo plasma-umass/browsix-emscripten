@@ -3,6 +3,9 @@ var SyscallsLibrary = {
 #if NO_FILESYSTEM == 0
                    '$FS', '$ERRNO_CODES', '$PATH',
 #endif
+#if BROWSIX
+                   '$BROWSIX',
+#endif
 #if SYSCALL_DEBUG
                    '$ERRNO_MESSAGES'
 #endif
