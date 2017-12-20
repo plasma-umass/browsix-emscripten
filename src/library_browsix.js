@@ -19,6 +19,9 @@ var BrowsixLibrary = {
         args: [0|0, 0|0, 0|0, 0|0, 0|0, 0|0],
       };
 
+      exports.SHM_SIZE = {{{ BROWSIX_SHM_SIZE }}};
+      exports.shm = null;
+
       var SyscallResponse = (function () {
         function SyscallResponse(id, name, args) {
           this.id = id;
@@ -241,9 +244,8 @@ var BrowsixLibrary = {
           if (typeof gc === 'function') gc();
 
           var oldHEAP8 = HEAP8;
-          var b = null;
           try {
-            b = new SharedArrayBuffer(REAL_TOTAL_MEMORY);
+            BROWSIX.shm = new SharedArrayBuffer(BROWSIX.SHM_SIZE);
           } catch (e) {
             if (attempt >= 16)
               throw e;
@@ -260,41 +262,22 @@ var BrowsixLibrary = {
 
             return;
           }
-          TOTAL_MEMORY = REAL_TOTAL_MEMORY;
-          REAL_TOTAL_MEMORY = undefined;
 
-          // copy whatever was in the old guy to here
-          new Int8Array(b).set(oldHEAP8);
-          updateGlobalBuffer(b);
-          updateGlobalBufferViews();
-          if (typeof asmModule !== 'undefined')
-            asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-          else
-            asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-          initReceiving();
-          initRuntimeFuncs();
+          var PER_BLOCKING = 0x80; // personality constant to tell the kernel we want blocking syscall responses
 
-          var PER_BLOCKING = 0x80;
           // it seems malloc overflows into our static allocation, so
           // just reserve that, throw it away, and never use it.  The
           // first number is in bytes, no matter what the 'i*' specifier
           // is :\
-          getMemory(1024);
-          var waitOff = getMemory(1024) + 512;
-          getMemory(1024);
+          var waitOff = 0;
           BROWSIX.browsix.waitOff = waitOff;
 
           // the original spec called for buffer to be in the transfer
           // list, but the current spec (and dev versions of Chrome)
           // don't support that.  Try it the old way, and if it
           // doesn't work try it the new way.
-          try {
-            BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                                  [PER_BLOCKING, buffer, waitOff], [buffer]);
-          } catch (e) {
-            BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                                  [PER_BLOCKING, buffer, waitOff], []);
-          }
+          BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+                                               [PER_BLOCKING, buffer, waitOff], []);
           function personalityChanged(err) {
             if (err) {
               console.log('personality: ' + err);

@@ -1082,6 +1082,9 @@ var SDL2_IMAGE_FORMATS = [];
 // If true, we assume we are compiling assets to run under Browsix in the browser.
 var BROWSIX = 1;
 
+// The total size of the SharedArrayBuffer shared between the Browsix kernel and process.
+var BROWSIX_SHM_SIZE = 16777216;
+
 // Compiler debugging options
 //
 // Some useful items:
