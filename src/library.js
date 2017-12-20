@@ -2764,6 +2764,22 @@ LibraryManager.library = {
   // sys/time.h
   // ==========================================================================
 
+  nanosleep__deps: ['usleep'],
+  nanosleep: function(rqtp, rmtp) {
+    // int nanosleep(const struct timespec  *rqtp, struct timespec *rmtp);
+    var seconds = {{{ makeGetValue('rqtp', C_STRUCTS.timespec.tv_sec, 'i32') }}};
+    var nanoseconds = {{{ makeGetValue('rqtp', C_STRUCTS.timespec.tv_nsec, 'i32') }}};
+    if (rmtp !== 0) {
+      {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_sec, '0', 'i32') }}};
+      {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_nsec, '0', 'i32') }}};
+    }
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX)
+      return SYSCALLS.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
+#endif
+    return _usleep((seconds * 1e6) + (nanoseconds / 1000));
+  },
+
   clock_gettime__deps: ['emscripten_get_now', 'emscripten_get_now_is_monotonic', '$ERRNO_CODES', '__setErrNo'],
   clock_gettime: function(clk_id, tp) {
     // int clock_gettime(clockid_t clk_id, struct timespec *tp);
