@@ -785,6 +785,10 @@ var IN_TEST_HARNESS = 0; // If true, the current build is performed for the Emsc
 
 var BROWSIX = 1; // If true, we assume we are compiling assets to run under Browsix in the browser.
 
+var BROWSIX_SHM_SIZE = 16777216; // The total size of the SharedArrayBuffer shared between the
+                                 // Browsix kernel and process.
+
+
 var USE_PTHREADS = 0; // If true, enables support for pthreads.
 
 var PTHREAD_POOL_SIZE = 0; // Specifies the number of web workers that are preallocated before runtime is initialized. If 0, workers are created on demand.
