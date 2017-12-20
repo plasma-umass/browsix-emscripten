@@ -21,6 +21,7 @@ var BrowsixLibrary = {
 
       exports.SHM_SIZE = {{{ BROWSIX_SHM_SIZE }}};
       exports.shm = null;
+      exports.shm32 = null;
 
       var SyscallResponse = (function () {
         function SyscallResponse(id, name, args) {
@@ -68,16 +69,16 @@ var BrowsixLibrary = {
           syncMsg.args[4] = a5|0;
           syncMsg.args[5] = a6|0;
 
-          Atomics.store(HEAP32, waitOff >> 2, 0);
+          Atomics.store(BROWSIX.browsix.shm32, waitOff >> 2, 0);
           self.postMessage(syncMsg);
-          var paranoid = Atomics.load(HEAP32, waitOff >> 2)|0;
+          var paranoid = Atomics.load(BROWSIX.browsix.shm32, waitOff >> 2)|0;
           if (paranoid !== 1 && paranoid !== 0) {
             Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
             debugger;
           }
-          Atomics.wait(HEAP32, waitOff >> 2, 0);
-          Atomics.store(HEAP32, waitOff >> 2, 0);
-          return Atomics.load(HEAP32, (waitOff >> 2) + 1);
+          Atomics.wait(BROWSIX.browsix.shm32, waitOff >> 2, 0);
+          Atomics.store(BROWSIX.browsix.shm32, waitOff >> 2, 0);
+          return Atomics.load(BROWSIX.browsix.shm32, (waitOff >> 2) + 1);
         };
         USyscalls.prototype.usleep = function(useconds) {
           // int usleep(useconds_t useconds);
@@ -86,18 +87,18 @@ var BrowsixLibrary = {
           var target = performance.now() + msec;
           var waitOff = BROWSIX.browsix.waitOff;
 
-          var paranoid = Atomics.load(HEAP32, (waitOff >> 2)+8);
+          var paranoid = Atomics.load(BROWSIX.browsix.shm32, (waitOff >> 2)+8);
           if (paranoid !== 0) {
             Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
           }
 
-          Atomics.store(HEAP32, (waitOff >> 2)+8, 0);
+          Atomics.store(BROWSIX.browsix.shm32, (waitOff >> 2)+8, 0);
 
           var msecsToSleep;
           while (performance.now() < target) {
             msecsToSleep = target - performance.now();
             if (msecsToSleep > 0) {
-              Atomics.wait(HEAP32, (waitOff >> 2)+8, 0, msecsToSleep);
+              Atomics.wait(BROWSIX.browsix.shm32, (waitOff >> 2)+8, 0, msecsToSleep);
             }
           }
           return 0;
@@ -245,7 +246,8 @@ var BrowsixLibrary = {
 
           var oldHEAP8 = HEAP8;
           try {
-            BROWSIX.shm = new SharedArrayBuffer(BROWSIX.SHM_SIZE);
+            BROWSIX.browsix.shm = new SharedArrayBuffer(BROWSIX.browsix.SHM_SIZE);
+            BROWSIX.browsix.shm32 = new Int32Array(BROWSIX.browsix.shm);
           } catch (e) {
             if (attempt >= 16)
               throw e;
