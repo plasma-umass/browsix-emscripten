@@ -55,8 +55,8 @@ var BrowsixLibrary = {
           }, transferrables);
         };
         USyscalls.prototype.sync = function (trap, a1, a2, a3, a4, a5, a6) {
-          var waitOff = SYSCALLS.browsix.waitOff;
-          var syncMsg = SYSCALLS.browsix.syncMsg;
+          var waitOff = BROWSIX.browsix.waitOff;
+          var syncMsg = BROWSIX.browsix.syncMsg;
           syncMsg.trap = trap|0;
           syncMsg.args[0] = a1|0;
           syncMsg.args[1] = a2|0;
@@ -81,7 +81,7 @@ var BrowsixLibrary = {
           // http://pubs.opengroup.org/onlinepubs/000095399/functions/usleep.html
           var msec = useconds / 1000;
           var target = performance.now() + msec;
-          var waitOff = SYSCALLS.browsix.waitOff;
+          var waitOff = BROWSIX.browsix.waitOff;
 
           var paranoid = Atomics.load(HEAP32, (waitOff >> 2)+8);
           if (paranoid !== 0) {
@@ -109,7 +109,7 @@ var BrowsixLibrary = {
           }
           // FIXME: this will only work in sync mode.
           Module['_fflush'](0);
-          if (SYSCALLS.browsix.async) {
+          if (BROWSIX.browsix.async) {
             this.syscallAsync(null, 'exit', [code]);
           } else {
             this.sync(252 /* SYS_exit_group */, code);
@@ -125,7 +125,7 @@ var BrowsixLibrary = {
             this.signalHandlers[type] = [handler];
         };
         USyscalls.prototype.resultHandler = function (ev) {
-          var response = SYSCALLS.browsix.SyscallResponseFrom(ev);
+          var response = BROWSIX.browsix.SyscallResponseFrom(ev);
           if (!response) {
             console.log('bad usyscall message, dropping');
             console.log(ev);
@@ -206,7 +206,7 @@ var BrowsixLibrary = {
         Runtime.process.env = environ;
 
 #if EMTERPRETIFY_ASYNC
-        SYSCALLS.browsix.async = true;
+        BROWSIX.browsix.async = true;
         if (!asm || typeof asm['_main'] === 'undefined') {
           if (typeof asmModule !== 'undefined')
             asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
@@ -219,14 +219,14 @@ var BrowsixLibrary = {
 #else
         if (typeof SharedArrayBuffer !== 'function') {
           var done = function() {
-            SYSCALLS.browsix.syscall.exit(-1);
+            BROWSIX.browsix.syscall.exit(-1);
           };
           var msg = 'ERROR: requires SharedArrayBuffer support, exiting\n';
           var buf = new Uint8Array(msg.length);
           for (var i = 0; i < msg.length; i++)
             buf[i] = msg.charCodeAt(i);
 
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [2, buf, -1]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [2, buf, -1]);
           console.log('Embrowsix: shared array buffers required');
           return;
         }
@@ -282,17 +282,17 @@ var BrowsixLibrary = {
           getMemory(1024);
           var waitOff = getMemory(1024) + 512;
           getMemory(1024);
-          SYSCALLS.browsix.waitOff = waitOff;
+          BROWSIX.browsix.waitOff = waitOff;
 
           // the original spec called for buffer to be in the transfer
           // list, but the current spec (and dev versions of Chrome)
           // don't support that.  Try it the old way, and if it
           // doesn't work try it the new way.
           try {
-            SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+            BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
                                                   [PER_BLOCKING, buffer, waitOff], [buffer]);
           } catch (e) {
-            SYSCALLS.browsix.syscall.syscallAsync(personalityChanged, 'personality',
+            BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
                                                   [PER_BLOCKING, buffer, waitOff], []);
           }
           function personalityChanged(err) {
@@ -300,7 +300,7 @@ var BrowsixLibrary = {
               console.log('personality: ' + err);
               return;
             }
-            SYSCALLS.browsix.async = false;
+            BROWSIX.browsix.async = false;
             if (Runtime.process && Runtime.process.env && Runtime.process.env['BROWSIX_PERF']) {
               var binary = Runtime.process.env['BROWSIX_PERF'];
               console.log('PERF: start ' + binary);
@@ -340,7 +340,7 @@ var BrowsixLibrary = {
           return ret;
         });
       };
-      SYSCALLS.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
+      BROWSIX.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
     });
 #else
     abort('TODO: fork not currently supported in sync Browsix');
@@ -366,12 +366,12 @@ var BrowsixLibrary = {
             return err ? (err|0) : len;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'pread', [fd, count, -1]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'pread', [fd, count, -1]);
       });
 #else
       var SYS_READ = 3;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_READ, fd, buf, count);
+      return BROWSIX.browsix.syscall.sync(SYS_READ, fd, buf, count);
 #endif
     }
 #endif
@@ -393,12 +393,12 @@ var BrowsixLibrary = {
             return err ? (err|0) : len;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [fd, h.slice(off, off+count), -1]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [fd, h.slice(off, off+count), -1]);
       });
 #else
       var SYS_WRITE = 4;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
+      return BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
 #endif
     }
 #endif
@@ -429,12 +429,12 @@ var BrowsixLibrary = {
               return err ? err : fd;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'open', [pathname, flags, mode]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'open', [pathname, flags, mode]);
     });
 #else
       var SYS_OPEN = 5;
       var path = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_OPEN, path, flags, mode);
+      return BROWSIX.browsix.syscall.sync(SYS_OPEN, path, flags, mode);
 #endif
     }
 #endif
@@ -453,12 +453,12 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'close', [fd]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'close', [fd]);
       });
 #else
       var SYS_CLOSE = 6;
       var fd = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_CLOSE, fd);
+      return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
 #endif
     }
 #endif
@@ -494,12 +494,12 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'unlink', [pathname]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'unlink', [pathname]);
       });
 #else
       var SYS_UNLINK = 10;
       var path = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_UNLINK, path);
+      return BROWSIX.browsix.syscall.sync(SYS_UNLINK, path);
 #endif
     }
 #endif
@@ -559,12 +559,12 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'execve', [filename, args, env]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'execve', [filename, args, env]);
       });
 #else
       var SYS_EXECVE = 11;
       var filename = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_EXECVE, filename, argv, envp);
+      return BROWSIX.browsix.syscall.sync(SYS_EXECVE, filename, argv, envp);
 #endif
     }
 #endif
@@ -594,12 +594,12 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'chdir', [pathname]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'chdir', [pathname]);
       });
 #else
       var SYS_CHDIR = 12;
       var pathname = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_CHDIR, pathname);
+      return BROWSIX.browsix.syscall.sync(SYS_CHDIR, pathname);
 #endif
     }
 #endif
@@ -639,11 +639,11 @@ var BrowsixLibrary = {
             return err ? (err|0) : pid;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'getpid');
+        BROWSIX.browsix.syscall.syscallAsync(done, 'getpid');
       });
 #else
       var SYS_GETPID = 20;
-      return SYSCALLS.browsix.syscall.sync(SYS_GETPID);
+      return BROWSIX.browsix.syscall.sync(SYS_GETPID);
 #endif
     }
 #endif
@@ -678,12 +678,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'access', [pathname, flags]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'access', [pathname, flags]);
       });
 #else
       var SYS_ACCESS = 33;
       var path = SYSCALLS.get(), amode = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_ACCESS, path, amode);
+      return BROWSIX.browsix.syscall.sync(SYS_ACCESS, path, amode);
 #endif
     }
 #endif
@@ -712,12 +712,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'kill', [pid, sig]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'kill', [pid, sig]);
       });
 #else
       var SYS_KILL = 37;
       var pid = SYSCALLS.get(), sig = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_KILL, pid, sig);
+      return BROWSIX.browsix.syscall.sync(SYS_KILL, pid, sig);
 #endif
     }
 #endif
@@ -762,12 +762,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'rename', [old_path, new_path]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'rename', [old_path, new_path]);
       });
 #else
       var SYS_RENAME = 38;
       var old_path = SYSCALLS.get(), new_path = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_RENAME, old_path, new_path);
+      return BROWSIX.browsix.syscall.sync(SYS_RENAME, old_path, new_path);
 #endif
     }
 #endif
@@ -800,12 +800,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'mkdir', [pathname, mode]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'mkdir', [pathname, mode]);
       });
 #else
       var SYS_MKDIR = 39;
       var path = SYSCALLS.get(), mode = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_MKDIR, path, mode);
+      return BROWSIX.browsix.syscall.sync(SYS_MKDIR, path, mode);
 #endif
     }
 #endif
@@ -837,12 +837,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'rmdir', [pathname]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'rmdir', [pathname]);
       });
 #else
       var SYS_RMDIR = 39;
       var path = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_RMDIR, path);
+      return BROWSIX.browsix.syscall.sync(SYS_RMDIR, path);
 #endif
     }
 #endif
@@ -862,12 +862,12 @@ var BrowsixLibrary = {
             return result|0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup', [fd1]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'dup', [fd1]);
       });
 #else
       var SYS_DUP = 41;
       var fd1 = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_DUP, fd1);
+      return BROWSIX.browsix.syscall.sync(SYS_DUP, fd1);
 #endif
     }
 #endif
@@ -889,12 +889,12 @@ var BrowsixLibrary = {
             return err || 0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'pipe2', [0]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'pipe2', [0]);
       });
 #else
       var SYS_PIPE2 = 41;
       var pipefd = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_PIPE2, pipefd, 0);
+      return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, 0);
 #endif
     }
 #endif
@@ -915,12 +915,12 @@ var BrowsixLibrary = {
             return result|0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'ioctl', [fd, op]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'ioctl', [fd, op]);
       });
 #else
       var SYS_IOCTL = 54;
       var fd = SYSCALLS.get(), op = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_IOCTL, fd, op);
+      return BROWSIX.browsix.syscall.sync(SYS_IOCTL, fd, op);
 #endif
     }
 #endif
@@ -986,12 +986,12 @@ var BrowsixLibrary = {
             return result|0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, 0]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, 0]);
       });
 #else
       var SYS_DUP3 = 330;
       var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_DUP3, fd1, fd2, 0);
+      return BROWSIX.browsix.syscall.sync(SYS_DUP3, fd1, fd2, 0);
 #endif
     }
 #endif
@@ -1010,11 +1010,11 @@ var BrowsixLibrary = {
             return err ? (err|0) : pid;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'getppid');
+        BROWSIX.browsix.syscall.syscallAsync(done, 'getppid');
       });
 #else
       var SYS_GETPPID = 64;
-      return SYSCALLS.browsix.syscall.sync(SYS_GETPPID);
+      return BROWSIX.browsix.syscall.sync(SYS_GETPPID);
 #endif
     }
 #endif
@@ -1123,7 +1123,7 @@ var BrowsixLibrary = {
               return err ? err : fd;
             });
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'socket', [domain, type, protocol]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'socket', [domain, type, protocol]);
           break;
         }
         case 2: { // bind
@@ -1136,7 +1136,7 @@ var BrowsixLibrary = {
               return err;
             });
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'bind', [sock, h.slice(off, off+addrlen)]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'bind', [sock, h.slice(off, off+addrlen)]);
           break;
         }
         case 3: { // connect
@@ -1148,7 +1148,7 @@ var BrowsixLibrary = {
               return err;
             });
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'connect', [sock, h.slice(off, off+addrlen)]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'connect', [sock, h.slice(off, off+addrlen)]);
           return 0;
         }
         case 4: { // listen
@@ -1158,7 +1158,7 @@ var BrowsixLibrary = {
               return err;
             });
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'listen', [sock, backlog]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'listen', [sock, backlog]);
           break;
         }
         case 5: { // accept
@@ -1175,7 +1175,7 @@ var BrowsixLibrary = {
               return err ? (err|0) : fd;
             });
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'accept', [sock]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'accept', [sock]);
           break;
         }
         case 6: { // getsockname
@@ -1207,7 +1207,7 @@ var BrowsixLibrary = {
                 return err ? (err|0) : n;
               });
             };
-            SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [sock, h.slice(off, off+length), -1]);
+            BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [sock, h.slice(off, off+length), -1]);
           } else {
             // sendto an address
             console.log('TODO: datagram sendto not implemented');
@@ -1545,12 +1545,12 @@ var BrowsixLibrary = {
         };
         var sys_name = 'wait4';
         var args = [pid, options];
-        SYSCALLS.browsix.syscall.syscallAsync(done, sys_name, args);
+        BROWSIX.browsix.syscall.syscallAsync(done, sys_name, args);
       });
 #else
       var SYS_WAIT4 = 114;
       var pid = SYSCALLS.get(), wstatus = SYSCALLS.get(), options = SYSCALLS.get(), rusage = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_WAIT4, pid, wstatus, options, rusage);
+      return BROWSIX.browsix.syscall.sync(SYS_WAIT4, pid, wstatus, options, rusage);
 #endif
     }
 #endif
@@ -1635,12 +1635,12 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'llseek', [fd, offset_high, offset_low, whence]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'llseek', [fd, offset_high, offset_low, whence]);
     });
 #else
       var SYS_LLSEEK = 140;
       var fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
+      return BROWSIX.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
 #endif
     }
 #endif
@@ -1789,7 +1789,7 @@ var BrowsixLibrary = {
               });
             }
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'pread', [fd, buf.length, -1]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'pread', [fd, buf.length, -1]);
         }
         readOne();
       });
@@ -1802,7 +1802,7 @@ var BrowsixLibrary = {
         var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
         if (len === 0)
           continue;
-        var read = SYSCALLS.browsix.syscall.sync(SYS_READ, fd, ptr, len);
+        var read = BROWSIX.browsix.syscall.sync(SYS_READ, fd, ptr, len);
         if (read < 0)
           return ret === 0 ? read : ret;
         ret += read;
@@ -1853,7 +1853,7 @@ var BrowsixLibrary = {
               });
             }
           };
-          SYSCALLS.browsix.syscall.syscallAsync(done, 'pwrite', [fd, buf, -1]);
+          BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [fd, buf, -1]);
         }
         writeOne();
       });
@@ -1866,7 +1866,7 @@ var BrowsixLibrary = {
         var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
         if (len === 0)
           continue;
-        var written = SYSCALLS.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
+        var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
         if (written < 0)
           return ret === 0 ? written : ret;
         ret += written;
@@ -1968,7 +1968,7 @@ var BrowsixLibrary = {
         //     return ret;
         //   });
         // };
-        // SYSCALLS.browsix.syscall.syscallAsync(done, 'sigaction', [signum, act, oldact]);;
+        // BROWSIX.browsix.syscall.syscallAsync(done, 'sigaction', [signum, act, oldact]);;
       });
 #else
       var SYS_SIGACTION = 174;
@@ -1978,7 +1978,7 @@ var BrowsixLibrary = {
       // kernel.  otherwise, register the pointer here somewhere.  and
       // figure out how to invoke it?
 
-      return SYSCALLS.browsix.syscall.sync(SYS_SIGACTION, signum, act, oldact);
+      return BROWSIX.browsix.syscall.sync(SYS_SIGACTION, signum, act, oldact);
 #endif
     }
 #endif
@@ -2001,12 +2001,12 @@ var BrowsixLibrary = {
         //     return ret;
         //   });
         // };
-        // SYSCALLS.browsix.syscall.syscallAsync(done, 'sigprocmask', [how, set, oldset]);;
+        // BROWSIX.browsix.syscall.syscallAsync(done, 'sigprocmask', [how, set, oldset]);;
       });
 #else
       var SYS_SIGPROCMASK = 174;
       var how = SYSCALLS.get(), set = SYSCALLS.get(), oldset = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_SIGPROCMASK, how, set, oldset);
+      return BROWSIX.browsix.syscall.sync(SYS_SIGPROCMASK, how, set, oldset);
 #endif
     }
 #endif
@@ -2058,12 +2058,12 @@ var BrowsixLibrary = {
             return buf;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'getcwd', []);;
+        BROWSIX.browsix.syscall.syscallAsync(done, 'getcwd', []);;
       });
 #else
       var SYS_GETCWD = 183;
       var buf = SYSCALLS.get(), size = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_GETCWD, buf, size);
+      return BROWSIX.browsix.syscall.sync(SYS_GETCWD, buf, size);
 #endif
     }
 #endif
@@ -2161,12 +2161,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'stat', [pathname]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'stat', [pathname]);
     });
 #else
       var SYS_STAT = 195;
       var path = SYSCALLS.get(), buf = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_STAT, path, buf);
+      return BROWSIX.browsix.syscall.sync(SYS_STAT, path, buf);
 #endif
     }
 #endif
@@ -2201,12 +2201,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'lstat', [pathname]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'lstat', [pathname]);
     });
 #else
       var SYS_LSTAT = 196;
       var path = SYSCALLS.get(), buf = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_LSTAT, path, buf);
+      return BROWSIX.browsix.syscall.sync(SYS_LSTAT, path, buf);
 #endif
     }
 #endif
@@ -2229,12 +2229,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'fstat', [fd]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'fstat', [fd]);
       });
 #else
       var SYS_FSTAT64 = 197;
       var fd = SYSCALLS.get(), buf = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_FSTAT64, fd, buf);
+      return BROWSIX.browsix.syscall.sync(SYS_FSTAT64, fd, buf);
 #endif
     }
 #endif
@@ -2315,12 +2315,12 @@ var BrowsixLibrary = {
           });
         };
 
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'getdents', [fd, count]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'getdents', [fd, count]);
       });
 #else
       var SYS_GETDENTS64 = 220;
       var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_GETDENTS64, fd, dirp, count);
+      return BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, dirp, count);
 #endif
     }
 #endif
@@ -2380,7 +2380,7 @@ var BrowsixLibrary = {
             return err;
           });
         };
-        return SYSCALLS.browsix.syscall.syscallAsync(done, 'fcntl64', [fd, cmd, arg]);
+        return BROWSIX.browsix.syscall.syscallAsync(done, 'fcntl64', [fd, cmd, arg]);
       });
 #else
       var SYS_FCNTL64 = 221;
@@ -2396,7 +2396,7 @@ var BrowsixLibrary = {
         arg = SYSCALLS.get();
       }
 
-      return SYSCALLS.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
+      return BROWSIX.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
 #endif
     }
 #endif
@@ -2705,12 +2705,12 @@ var BrowsixLibrary = {
             return result|0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, flags]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'dup3', [fd1, fd2, flags]);
       });
 #else
       var SYS_DUP3 = 330;
       var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_DUP3, fd1, fd2, flags);
+      return BROWSIX.browsix.syscall.sync(SYS_DUP3, fd1, fd2, flags);
 #endif
     }
 #endif
@@ -2737,12 +2737,12 @@ var BrowsixLibrary = {
             return err || 0;
           });
         };
-        SYSCALLS.browsix.syscall.syscallAsync(done, 'pipe2', [flags]);
+        BROWSIX.browsix.syscall.syscallAsync(done, 'pipe2', [flags]);
       });
 #else
       var SYS_PIPE2 = 41;
       var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
-      return SYSCALLS.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
+      return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
 #endif
     }
 #endif
