@@ -2810,7 +2810,7 @@ LibraryManager.library = {
     }
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX)
-      return SYSCALLS.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
+      return BROWSIX.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
 #endif
     return _usleep((seconds * 1e6) + (nanoseconds / 1000));
   },
