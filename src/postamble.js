@@ -163,7 +163,7 @@ var calledMain = false;
 
 dependenciesFulfilled = function runCaller() {
   // If run has never been called, and we should call run (INVOKE_RUN is true, and Module.noInitialRun is not false)
-  if (!Module['calledRun']) run();
+  if (!Module['calledRun']) run(Module['arguments']);
   if (!Module['calledRun']) dependenciesFulfilled = runCaller; // try this again later, after new deps are fulfilled
 }
 
@@ -211,8 +211,17 @@ Module['callMain'] = function callMain(args) {
     // if we are saving the stack, then do not call exit, we are not
     // really exiting now, just unwinding the JS stack
     if (typeof EmterpreterAsync === 'object' && EmterpreterAsync.state !== 1) {
+#if BROWSIX
+      if (ENVIRONMENT_IS_BROWSIX) {
+        if (EmterpreterAsync.state !== 1) {
+          exit(ret, /* implicit = */ true);
+        }
+      } else {
+        exit(ret, /* implicit = */ true);
+      }
+#endif
 #endif // EMTERPRETIFY_ASYNC
-    // if we're not running an evented main loop, it's time to exit
+      // if we're not running an evented main loop, it's time to exit
       exit(ret, /* implicit = */ true);
 #if EMTERPRETIFY_ASYNC
     }
@@ -488,8 +497,7 @@ Module["noExitRuntime"] = true;
 
 #if BROWSIX
 if (ENVIRONMENT_IS_BROWSIX) {
-  //self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
-  self.onmessage = function() { console.log('TODO: handle browsix init'); }
+  self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
   Runtime.process.once('ready', function() {
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {
@@ -503,7 +511,9 @@ if (ENVIRONMENT_IS_BROWSIX) {
     if (Runtime.process.pid) {
       abort('TODO: sync post-fork?');
     } else {
-      run(Runtime.process.argv.slice(2));
+      var args = Runtime.process.argv.slice(2);
+      Module['arguments'] = args;
+      run(args);
     }
   });
 } else if (typeof ENVIRONMENT_IS_PTHREAD === 'undefined' || !ENVIRONMENT_IS_PTHREAD) {
