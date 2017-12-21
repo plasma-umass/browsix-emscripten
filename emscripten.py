@@ -1496,6 +1496,22 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
   module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
   module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
 
+  shim_browsix = ''
+  if settings['BROWSIX']:
+    shim_browsix = '''
+if (ENVIRONMENT_IS_BROWSIX) {
+  for (var x in BROWSIX.browsix) {
+    var m = /^__syscall(\d+)$/.exec(x);
+    if (!m)
+      continue;
+    if (typeof (this['_' + x]) === 'function') {
+      this['_' + x] = BROWSIX.browsix[x];
+      Module.asmLibraryArg['_' + x] = BROWSIX.browsix[x];
+    }
+  }
+}
+'''
+
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (function(global, env, buffer) {')
 
@@ -1509,6 +1525,7 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
     shared_array_buffer,
     module_library,
     asm_function_top,
+    shim_browsix,
     use_asm,
     create_first_in_asm(settings),
     create_memory_views(settings),

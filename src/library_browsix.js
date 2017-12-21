@@ -279,7 +279,7 @@ var BrowsixLibrary = {
           // don't support that.  Try it the old way, and if it
           // doesn't work try it the new way.
           BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                               [PER_BLOCKING, buffer, waitOff], []);
+                                               [PER_BLOCKING, BROWSIX.browsix.shm, waitOff], []);
           function personalityChanged(err) {
             if (err) {
               console.log('personality: ' + err);
@@ -301,35 +301,111 @@ var BrowsixLibrary = {
 
       syscall.addEventListener('init', init1);
 
+      exports.__syscall1 = function(which, varargs) { // exit
+        var status = SYSCALLS.get();
+        Module['exit'](status);
+        return 0;
+      };
+      exports.__syscall2 = function(which, varargs) { // fork
+#if EMTERPRETIFY_ASYNC
+        return EmterpreterAsync.handle(function(resume) {
+          var pc = HEAP32[EMTSTACKTOP>>2];
+
+          var args = {
+            pc: HEAP32[EMTSTACKTOP>>2],
+            stackSave: asm.stackSave(),
+            emtStackTop: EMTSTACKTOP,
+          }
+
+          var done = function(ret) {
+            resume(function() {
+              return ret;
+            });
+          };
+          BROWSIX.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
+        });
+#else
+        abort('TODO: fork not currently supported in sync Browsix');
+#endif
+      };
+      exports.__syscall6 = function(which, varargs) { // close
+#if EMTERPRETIFY_ASYNC
+        return EmterpreterAsync.handle(function(resume) {
+          var fd = SYSCALLS.get();
+          var done = function(err) {
+            resume(function() {
+              return err;
+            });
+          };
+          BROWSIX.browsix.syscall.syscallAsync(done, 'close', [fd]);
+        });
+#else
+        var SYS_CLOSE = 6;
+        var fd = SYSCALLS.get();
+        return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
+#endif
+      };
+      exports.__syscall146 = function(which, varargs) { // writev
+#if EMTERPRETIFY_ASYNC
+        return EmterpreterAsync.handle(function(resume) {
+
+          var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+
+          bufs = [];
+          for (var i = 0; i < iovcnt; i++) {
+            var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+            var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+            if (len === 0)
+              continue;
+            bufs.push(HEAPU8.slice(ptr, ptr+len));
+          }
+
+          if (!bufs.length) {
+            return resume(function() {
+              return 0;
+            });
+          }
+
+          var written = 0;
+
+          function writeOne() {
+            var buf = bufs.shift();
+            var done = function(err, len) {
+              if (!err)
+                written += len;
+
+              if (bufs.length) {
+                writeOne();
+              } else {
+                resume(function() {
+                  return err ? err : written;
+                });
+              }
+            };
+            BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [fd, buf, -1]);
+          }
+          writeOne();
+        });
+#else
+        var SYS_WRITE = 4;
+        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+        var ret = 0;
+        for (var i = 0; i < iovcnt; i++) {
+          var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+          var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+          if (len === 0)
+            continue;
+          var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
+          if (written < 0)
+            return ret === 0 ? written : ret;
+          ret += written;
+        }
+        return ret;
+#endif
+      };
+
       return exports;
     }()),
-  },
-  __syscall1: function(which, varargs) { // exit
-    var status = SYSCALLS.get();
-    Module['exit'](status);
-    return 0;
-  },
-  __syscall2: function(which, varargs) { // fork
-#if EMTERPRETIFY_ASYNC
-    return EmterpreterAsync.handle(function(resume) {
-      var pc = HEAP32[EMTSTACKTOP>>2];
-
-      var args = {
-        pc: HEAP32[EMTSTACKTOP>>2],
-        stackSave: asm.stackSave(),
-        emtStackTop: EMTSTACKTOP,
-      }
-
-      var done = function(ret) {
-        resume(function() {
-          return ret;
-        });
-      };
-      BROWSIX.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
-    });
-#else
-    abort('TODO: fork not currently supported in sync Browsix');
-#endif
   },
   /*
   __syscall3: function(which, varargs) { // read
@@ -2759,5 +2835,57 @@ var BrowsixLibrary = {
   },
 */
 };
+
+// for (var x in BrowsixLibrary) {
+//   var m = /^__browsix_syscall(\d+)$/.exec(x);
+//   if (!m) continue;
+//   var which = +m[1];
+//   var t = BrowsixLibrary[x];
+//   if (typeof t === 'string') continue;
+//   t = t.toString();
+//   var pre = '', post = '';
+// #if USE_PTHREADS
+//   pre += 'if (ENVIRONMENT_IS_PTHREAD) { return _emscripten_sync_run_in_main_thread_2({{{ cDefine("EM_PROXIED_SYSCALL") }}}, ' + which + ', varargs) }\n';
+// #endif
+//   pre += 'SYSCALLS.varargs = varargs;\n';
+// #if SYSCALL_DEBUG
+//   pre += "Module.printErr('syscall! ' + [" + which + ", '" + SYSCALL_CODE_TO_NAME[which] + "']);\n";
+//   pre += "var canWarn = true;\n";
+//   pre += "var ret = (function() {\n";
+//   post += "})();\n";
+//   post += "if (ret < 0 && canWarn) {\n";
+//   post += "  Module.printErr('error: syscall may have failed with ' + (-ret) + ' (' + ERRNO_MESSAGES[-ret] + ')');\n";
+//   post += "}\n";
+//   post += "Module.printErr('syscall return: ' + ret);\n";
+//   post += "return ret;\n";
+// #endif
+//   pre += 'try {\n';
+//   var handler =
+//   "} catch (e) {\n" +
+//   "  if (typeof FS === 'undefined' || !(e instanceof FS.ErrnoError)) abort(e);\n";
+// #if SYSCALL_DEBUG
+//   handler +=
+//   "  Module.printErr('error: syscall failed with ' + e.errno + ' (' + ERRNO_MESSAGES[e.errno] + ')');\n" +
+//   "  canWarn = false;\n";
+// #endif
+//   handler +=
+//   "  return -e.errno;\n" +
+//   "}\n";
+//   post = handler + post;
+//
+//   if (pre) {
+//     var bodyStart = t.indexOf('{') + 1;
+//     t = t.substring(0, bodyStart) + pre + t.substring(bodyStart);
+//   }
+//   if (post) {
+//     var bodyEnd = t.lastIndexOf('}');
+//     t = t.substring(0, bodyEnd) + post + t.substring(bodyEnd);
+//   }
+//   BrowsixLibrary[x] = eval('(' + t + ')');
+//   if (!BrowsixLibrary[x + '__deps']) BrowsixLibrary[x + '__deps'] = [];
+//   // BrowsixLibrary[x + '__deps'].push('$BROWSIX');
+//   // BrowsixLibrary['$BROWSIX__deps'].push(x)
+// }
+
 
 mergeInto(LibraryManager.library, BrowsixLibrary);
