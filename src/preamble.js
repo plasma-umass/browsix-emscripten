@@ -66,6 +66,7 @@ var Process = (function (_super) {
         this.argv = argv;
         this.env = environ;
         this.syscall = null;
+        this.isReady = false;
     }
     Process.prototype.exit = function (code) {
         //Module['noExitRuntime'] = false;
@@ -2542,6 +2543,12 @@ function integrateWasmJS() {
   // doesn't need to care that it is wasm or olyfilled wasm or asm.js.
 
   Module['asm'] = function(global, env, providedBuffer) {
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX && !Runtime.process.isReady) {
+      return;
+    }
+#endif
+
     global = fixImports(global);
     env = fixImports(env);
 
