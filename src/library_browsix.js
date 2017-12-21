@@ -301,13 +301,13 @@ var BrowsixLibrary = {
 
       syscall.addEventListener('init', init1);
 
+#if EMTERPRETIFY_ASYNC
       exports.__syscall1 = function(which, varargs) { // exit
         var status = SYSCALLS.get();
         Module['exit'](status);
         return 0;
       };
       exports.__syscall2 = function(which, varargs) { // fork
-#if EMTERPRETIFY_ASYNC
         return EmterpreterAsync.handle(function(resume) {
           var pc = HEAP32[EMTSTACKTOP>>2];
 
@@ -324,12 +324,8 @@ var BrowsixLibrary = {
           };
           BROWSIX.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
         });
-#else
-        abort('TODO: fork not currently supported in sync Browsix');
-#endif
       };
       exports.__syscall6 = function(which, varargs) { // close
-#if EMTERPRETIFY_ASYNC
         return EmterpreterAsync.handle(function(resume) {
           var fd = SYSCALLS.get();
           var done = function(err) {
@@ -339,14 +335,8 @@ var BrowsixLibrary = {
           };
           BROWSIX.browsix.syscall.syscallAsync(done, 'close', [fd]);
         });
-#else
-        var SYS_CLOSE = 6;
-        var fd = SYSCALLS.get();
-        return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
-#endif
       };
       exports.__syscall146 = function(which, varargs) { // writev
-#if EMTERPRETIFY_ASYNC
         return EmterpreterAsync.handle(function(resume) {
 
           var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
@@ -386,7 +376,22 @@ var BrowsixLibrary = {
           }
           writeOne();
         });
+      };
 #else
+      exports.__syscall1 = function(which, varargs) { // exit
+        var status = SYSCALLS.get();
+        Module['exit'](status);
+        return 0;
+      };
+      exports.__syscall2 = function(which, varargs) { // fork
+        abort('TODO: fork not currently supported in sync Browsix');
+      };
+      exports.__syscall6 = function(which, varargs) { // close
+        var SYS_CLOSE = 6;
+        var fd = SYSCALLS.get();
+        return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
+      };
+      exports.__syscall146 = function(which, varargs) { // writev
         var SYS_WRITE = 4;
         var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
         var ret = 0;
@@ -401,8 +406,8 @@ var BrowsixLibrary = {
           ret += written;
         }
         return ret;
-#endif
       };
+#endif
 
       return exports;
     }()),
