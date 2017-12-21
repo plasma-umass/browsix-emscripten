@@ -48,6 +48,7 @@ var Process = (function (_super) {
         this.argv = argv;
         this.env = environ;
         this.syscall = null;
+        this.isReady = false;
     }
     Process.prototype.exit = function (code) {
         //Module['noExitRuntime'] = false;
@@ -2196,6 +2197,11 @@ function integrateWasmJS() {
   // doesn't need to care that it is wasm or polyfilled wasm or asm.js.
 
   Module['asm'] = function(global, env, providedBuffer) {
+#if BROWSIX
+    if (ENVIRONMENT_IS_BROWSIX && !Runtime.process.isReady) {
+      return;
+    }
+#endif
     // import table
     if (!env['table']) {
       var TABLE_SIZE = Module['wasmTableSize'];

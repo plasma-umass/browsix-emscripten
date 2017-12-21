@@ -219,6 +219,7 @@ var BrowsixLibrary = {
         }
         initReceiving();
         initRuntimeFuncs();
+        Runtime.process.isReady = true;
         setTimeout(function () { Runtime.process.emit('ready'); }, 0);
 #else
         if (typeof SharedArrayBuffer !== 'function') {
@@ -293,6 +294,8 @@ var BrowsixLibrary = {
               stopXhr.open('GET', 'http://localhost:9000/start?binary=' + binary, false);
               stopXhr.send();
             }
+            Runtime.process.isReady = true;
+            asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
             Runtime.process.emit('ready');
           }
         }
