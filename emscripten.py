@@ -1485,20 +1485,11 @@ function getTempRet0() {
 ''' if not settings['RELOCATABLE'] else '']
 
 
-def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
-  access_quote = access_quoter(settings)
+def browsix_shim(settings):
+  if not settings['BROWSIX']:
+    return
 
-  shared_array_buffer = ''
-  if settings['USE_PTHREADS']:
-    shared_array_buffer = "Module.asmGlobalArg['Atomics'] = Atomics;"
-
-  module_get = 'Module{access} = {val};'
-  module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
-  module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
-
-  shim_browsix = ''
-  if settings['BROWSIX']:
-    shim_browsix = '''
+  return '''
 if (ENVIRONMENT_IS_BROWSIX) {
   for (var x in BROWSIX.browsix) {
     var m = /^__syscall(\d+)$/.exec(x);
@@ -1512,6 +1503,20 @@ if (ENVIRONMENT_IS_BROWSIX) {
 }
 '''
 
+
+def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
+  access_quote = access_quoter(settings)
+
+  shared_array_buffer = ''
+  if settings['USE_PTHREADS']:
+    shared_array_buffer = "Module.asmGlobalArg['Atomics'] = Atomics;"
+
+  module_get = 'Module{access} = {val};'
+  module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
+  module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
+
+  shim_browsix = browsix_shim(settings)
+
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (function(global, env, buffer) {')
 
@@ -1524,8 +1529,8 @@ if (ENVIRONMENT_IS_BROWSIX) {
     module_global,
     shared_array_buffer,
     module_library,
-    asm_function_top,
     shim_browsix,
+    asm_function_top,
     use_asm,
     create_first_in_asm(settings),
     create_memory_views(settings),
@@ -1969,9 +1974,10 @@ def create_module_wasm(sending, receiving, invoke_funcs, settings):
 Module%s = %s;
 %s
 Module%s = %s;
+%s
 ''' % (access_quote('asmGlobalArg'), the_global,
      shared_array_buffer,
-     access_quote('asmLibraryArg'), sending) + '''
+       access_quote('asmLibraryArg'), sending, browsix_shim(settings)) + '''
 var asm = Module['asm'](%s, %s, buffer);
 %s;
 ''' % ('Module' + access_quote('asmGlobalArg'),
