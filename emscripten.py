@@ -1684,18 +1684,11 @@ function SAFE_FT_MASK(value, mask) {
   return funcs
 
 
-def create_asm_start_pre(asm_setup, the_global, sending, metadata):
-  shared_array_buffer = ''
-  if shared.Settings.USE_PTHREADS and not shared.Settings.WASM:
-    shared_array_buffer = "Module.asmGlobalArg['Atomics'] = Atomics;"
+def browsix_shim(settings):
+  if not settings['BROWSIX']:
+    return ''
 
-  module_get = 'Module{access} = {val};'
-  module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
-  module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
-
-  shim_browsix = ''
-  if settings['BROWSIX']:
-    shim_browsix = '''
+  return '''
 if (ENVIRONMENT_IS_BROWSIX) {
   for (var x in BROWSIX.browsix) {
     var m = /^__syscall(\d+)$/.exec(x);
@@ -1709,6 +1702,18 @@ if (ENVIRONMENT_IS_BROWSIX) {
 }
 '''
 
+
+def create_asm_start_pre(asm_setup, the_global, sending, metadata):
+  shared_array_buffer = ''
+  if shared.Settings.USE_PTHREADS and not shared.Settings.WASM:
+    shared_array_buffer = "Module.asmGlobalArg['Atomics'] = Atomics;"
+
+  module_get = 'Module{access} = {val};'
+  module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
+  module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
+
+  shim_browsix = browsix_shim(settings)
+
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {')
 
@@ -1721,8 +1726,8 @@ if (ENVIRONMENT_IS_BROWSIX) {
     module_global,
     shared_array_buffer,
     module_library,
-    asm_function_top,
     shim_browsix,
+    asm_function_top,
     use_asm,
     create_first_in_asm(),
     create_memory_views(),
@@ -2165,7 +2170,8 @@ def create_module_wasm(sending, receiving, invoke_funcs, jscall_sigs,
 Module%s = {};
 %s
 Module%s = %s;
-''' % (access_quote('asmGlobalArg'), shared_array_buffer, access_quote('asmLibraryArg'), sending) + '''
+%s
+''' % (access_quote('asmGlobalArg'), shared_array_buffer, access_quote('asmLibraryArg'), sending, browsix_shim(settings)) + '''
 var asm = Module['asm'](Module%s, Module%s, buffer);
 %s;
 ''' % (access_quote('asmGlobalArg'), access_quote('asmLibraryArg'), receiving)]
