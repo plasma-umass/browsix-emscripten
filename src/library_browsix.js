@@ -317,83 +317,6 @@ var BrowsixLibrary = {
 
       syscall.addEventListener('init', init1);
 
-#if EMTERPRETIFY_ASYNC
-      exports.__syscall1 = function(which, varargs) { // exit
-        var status = SYSCALLS.get();
-        Module['exit'](status);
-        return 0;
-      };
-      exports.__syscall2 = function(which, varargs) { // fork
-        return EmterpreterAsync.handle(function(resume) {
-          var pc = HEAP32[EMTSTACKTOP>>2];
-
-          var args = {
-            pc: HEAP32[EMTSTACKTOP>>2],
-            stackSave: asm.stackSave(),
-            emtStackTop: EMTSTACKTOP,
-          }
-
-          var done = function(ret) {
-            resume(function() {
-              return ret;
-            });
-          };
-          BROWSIX.browsix.syscall.syscallAsync(done, 'fork', [HEAPU8.buffer, args]);
-        });
-      };
-      exports.__syscall6 = function(which, varargs) { // close
-        return EmterpreterAsync.handle(function(resume) {
-          var fd = SYSCALLS.get();
-          var done = function(err) {
-            resume(function() {
-              return err;
-            });
-          };
-          BROWSIX.browsix.syscall.syscallAsync(done, 'close', [fd]);
-        });
-      };
-      exports.__syscall146 = function(which, varargs) { // writev
-        return EmterpreterAsync.handle(function(resume) {
-
-          var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-
-          bufs = [];
-          for (var i = 0; i < iovcnt; i++) {
-            var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
-            var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
-            if (len === 0)
-              continue;
-            bufs.push(HEAPU8.slice(ptr, ptr+len));
-          }
-
-          if (!bufs.length) {
-            return resume(function() {
-              return 0;
-            });
-          }
-
-          var written = 0;
-
-          function writeOne() {
-            var buf = bufs.shift();
-            var done = function(err, len) {
-              if (!err)
-                written += len;
-
-              if (bufs.length) {
-                writeOne();
-              } else {
-                resume(function() {
-                  return err ? err : written;
-                });
-              }
-            };
-            BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [fd, buf, -1]);
-          }
-          writeOne();
-        });
-      };
-#else
       exports.__syscall1 = function(which, varargs) { // exit
         var status = SYSCALLS.get();
         Module['exit'](status);
@@ -416,9 +339,12 @@ var BrowsixLibrary = {
           let len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
           if (len === 0)
             continue;
+          // it is possible for the buffer being written to be larger
+          // than our shared memory segment.  In the common case this
+          // while loop executes once, but for large source buffers
+          // will iterate several times.
           while (len > 0) {
             let shmBuf = BROWSIX.browsix.getShm(len);
-
             shmBuf.set(new Uint8Array(buffer, ptr, shmBuf.length));
 
             var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
@@ -432,7 +358,6 @@ var BrowsixLibrary = {
         }
         return ret;
       };
-#endif
 
       return exports;
     }()),
