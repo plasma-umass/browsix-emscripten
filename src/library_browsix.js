@@ -21,7 +21,18 @@ var BrowsixLibrary = {
 
       exports.SHM_SIZE = {{{ BROWSIX_SHM_SIZE }}};
       exports.shm = null;
+      exports.shmU8 = null;
       exports.shm32 = null;
+      exports.SHM_OFF = 128;
+      exports.SHM_BUF_SIZE = {{{ BROWSIX_SHM_SIZE - 128 }}};
+
+      exports.getShm = function(len) {
+        if (len > BROWSIX.browsix.SHM_BUF_SIZE)
+          len = BROWSIX.browsix.SHM_BUF_SIZE;
+
+        let off = BROWSIX.browsix.SHM_OFF;
+        return new Uint8Array(BROWSIX.browsix.shm, off, len);
+      };
 
       var SyscallResponse = (function () {
         function SyscallResponse(id, name, args) {
@@ -248,6 +259,7 @@ var BrowsixLibrary = {
           var oldHEAP8 = HEAP8;
           try {
             BROWSIX.browsix.shm = new SharedArrayBuffer(BROWSIX.browsix.SHM_SIZE);
+            BROWSIX.browsix.shmU8 = new Uint8Array(BROWSIX.browsix.shm);
             BROWSIX.browsix.shm32 = new Int32Array(BROWSIX.browsix.shm);
           } catch (e) {
             if (attempt >= 16)
@@ -295,7 +307,8 @@ var BrowsixLibrary = {
               stopXhr.send();
             }
             Runtime.process.isReady = true;
-            asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+            if (typeof asm !== 'object')
+              asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
             Runtime.process.emit('ready');
           }
         }
@@ -395,18 +408,27 @@ var BrowsixLibrary = {
         return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
       };
       exports.__syscall146 = function(which, varargs) { // writev
-        var SYS_WRITE = 4;
-        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-        var ret = 0;
-        for (var i = 0; i < iovcnt; i++) {
-          var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
-          var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        let SYS_WRITE = 4;
+        let fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+        let ret = 0;
+        for (let i = 0; i < iovcnt; i++) {
+          let ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+          let len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
           if (len === 0)
             continue;
-          var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, ptr, len);
-          if (written < 0)
-            return ret === 0 ? written : ret;
-          ret += written;
+          while (len > 0) {
+            let shmBuf = BROWSIX.browsix.getShm(len);
+
+            shmBuf.set(new Uint8Array(buffer, ptr, shmBuf.length));
+
+            var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
+            if (written < 0)
+              return ret === 0 ? written : ret;
+            ret += written;
+
+            ptr += shmBuf.length;
+            len -= shmBuf.length;
+          }
         }
         return ret;
       };
