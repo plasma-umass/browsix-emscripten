@@ -308,7 +308,9 @@ var BrowsixLibrary = {
             }
             Runtime.process.isReady = true;
             if (typeof asm !== 'object')
-              asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+              asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+            initReceiving();
+            initRuntimeFuncs();
             Runtime.process.emit('ready');
           }
         }
