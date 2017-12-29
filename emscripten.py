@@ -379,6 +379,13 @@ def create_module(function_table_sigs, metadata, settings,
 
   runtime_library_overrides = create_runtime_library_overrides(settings)
 
+  if settings.get('BROWSIX'):
+    runtime_library_overrides = 'function initRuntimeFuncs () {\n%s\n} ' % (runtime_library_overrides,)
+    runtime_library_overrides += 'if (!ENVIRONMENT_IS_BROWSIX)\n    initRuntimeFuncs();'
+    receiving = 'function initReceiving () {\n%s\n} ' % (receiving,)
+    receiving += 'if (!ENVIRONMENT_IS_BROWSIX)\n    initReceiving();'
+
+
   module = [
     asm_start,
     temp_float,
@@ -1295,9 +1302,15 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
 };
 ''' for s in exported_implemented_functions if s not in ['_memcpy', '_memset', 'runPostSets', '_emscripten_replace_memory', '__start_module']])
   if not settings['SWAPPABLE_ASM_MODULE']:
-    receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
+    if settings['BROWSIX']:
+      receiving += ';\n'.join([s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
+    else:
+      receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
   else:
-    receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
+    if settings['BROWSIX']:
+      receiving += 'Module["asm"] = asm;\n' + ';\n'.join([s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])      
+    else:
+      receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
   receiving += ';\n'
 
   if settings['EXPORT_FUNCTION_TABLES'] and not settings['BINARYEN']:
@@ -1520,6 +1533,12 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (function(global, env, buffer) {')
 
+  if settings.get('BROWSIX'):
+    asm_function_top = ('var asm = undefined;\n'
+                        '// EMSCRIPTEN_START_ASM\n'
+                        'var asmModule = (function(global, env, buffer) {')
+
+
   use_asm = "'almost asm';"
   if not metadata.get('hasInlineJS') and settings['ASM_JS'] == 1:
     use_asm = "'use asm';"
@@ -1582,15 +1601,23 @@ function _emscripten_replace_memory(newBuffer) {
 
 def create_asm_end(exports, settings):
   access_quote = access_quoter(settings)
-  return '''
+  end = '''
 
   return %s;
 })
 // EMSCRIPTEN_END_ASM
-(%s, %s, buffer);
-''' % (exports,
-       'Module' + access_quote('asmGlobalArg'),
-       'Module' + access_quote('asmLibraryArg'))
+''' % (exports,)
+
+  if not settings.get('BROWSIX'):
+    end += '(%s, %s, buffer);\n' % ('Module' + access_quote('asmGlobalArg'),
+                                    'Module' + access_quote('asmLibraryArg'))
+  else:
+    end += '''\nif (!ENVIRONMENT_IS_BROWSIX) {
+  asm = asmModule(%s, %s, buffer);
+}''' % ('Module' + access_quote('asmGlobalArg'),
+        'Module' + access_quote('asmLibraryArg'))
+
+  return end
 
 
 def create_runtime_library_overrides(settings):
