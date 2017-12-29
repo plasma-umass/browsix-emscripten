@@ -320,19 +320,72 @@ var BrowsixLibrary = {
       syscall.addEventListener('init', init1);
 
       exports.__syscall1 = function(which, varargs) { // exit
+        SYSCALLS.varargs = varargs;
         var status = SYSCALLS.get();
         Module['exit'](status);
         return 0;
       };
       exports.__syscall2 = function(which, varargs) { // fork
+        SYSCALLS.varargs = varargs;
         abort('TODO: fork not currently supported in sync Browsix');
       };
+      exports.__syscall3 = function(which, varargs) { // read
+        SYSCALLS.varargs = varargs;
+        let SYS_READ = 3;
+        let fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
+        let ret = 0;
+
+        while (len > 0) {
+          let shmBuf = BROWSIX.browsix.getShm(len);
+
+          let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
+
+          if (count < 0)
+              return ret === 0 ? count : ret;
+
+          // TODO: this potentially overcopies if count is much
+          // shorter than buffer size.  Optimize if it matters.
+          (new Uint8Array(buffer, ptr, shmBuf.length)).set(shmBuf);
+          ret += count;
+
+          ptr += shmBuf.length;
+          len -= shmBuf.length;
+        }
+        return ret;
+      };
+      exports.__syscall4 = function(which, varargs) { // write
+        SYSCALLS.varargs = varargs;
+        let SYS_WRITE = 4;
+        let fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
+        let ret = 0;
+
+        // it is possible for the buffer being written to be larger
+        // than our shared memory segment.  In the common case this
+        // while loop executes once, but for large source buffers
+        // will iterate several times.
+        while (len > 0) {
+          let shmBuf = BROWSIX.browsix.getShm(len);
+          shmBuf.set(new Uint8Array(buffer, ptr, shmBuf.length));
+
+          var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
+          if (written < 0)
+            return ret === 0 ? written : ret;
+          ret += written;
+
+          ptr += shmBuf.length;
+          len -= shmBuf.length;
+        }
+
+        return ret;
+      };
       exports.__syscall6 = function(which, varargs) { // close
+        SYSCALLS.varargs = varargs;
         var SYS_CLOSE = 6;
         var fd = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
       };
       exports.__syscall146 = function(which, varargs) { // writev
+        SYSCALLS.varargs = varargs;
         let SYS_WRITE = 4;
         let fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
         let ret = 0;
@@ -365,64 +418,6 @@ var BrowsixLibrary = {
     }()),
   },
   /*
-  __syscall3: function(which, varargs) { // read
-#if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX) {
-#if EMTERPRETIFY_ASYNC
-      return EmterpreterAsync.handle(function(resume) {
-
-        var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-        var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
-        var h = ho[0], off = ho[1];
-
-        var done = function(err, len, data) {
-          if (!err) {
-            h.subarray(off, off+count).set(data);
-          }
-
-          resume(function() {
-            return err ? (err|0) : len;
-          });
-        };
-        BROWSIX.browsix.syscall.syscallAsync(done, 'pread', [fd, count, -1]);
-      });
-#else
-      var SYS_READ = 3;
-      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-      return BROWSIX.browsix.syscall.sync(SYS_READ, fd, buf, count);
-#endif
-    }
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-    return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
-  },
-  __syscall4: function(which, varargs) { // write
-#if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX) {
-#if EMTERPRETIFY_ASYNC
-      return EmterpreterAsync.handle(function(resume) {
-
-        var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-        var ho = [{{{ heapAndOffset('HEAPU8', 'buf') }}}];
-        var h = ho[0], off = ho[1];
-
-        var done = function(err, len) {
-          resume(function() {
-            return err ? (err|0) : len;
-          });
-        };
-        BROWSIX.browsix.syscall.syscallAsync(done, 'pwrite', [fd, h.slice(off, off+count), -1]);
-      });
-#else
-      var SYS_WRITE = 4;
-      var fd = SYSCALLS.get(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-      return BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, buf, count);
-#endif
-    }
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), buf = SYSCALLS.get(), count = SYSCALLS.get();
-    return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
-  },
   __syscall5: function(which, varargs) { // open
 #if BROWSIX
     if (ENVIRONMENT_IS_BROWSIX) {
