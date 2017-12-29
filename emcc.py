@@ -124,6 +124,17 @@ EMCC_CFLAGS = os.environ.get('EMCC_CFLAGS')
 final = None
 
 
+def slurp(fname):
+  with open(fname, 'r') as f:
+    return f.read()
+
+
+def wasm_to_uint8array(fname):
+  wasm_bytes = slurp(fname)
+  bytes_str = ', '.join([str(ord(c)) for c in wasm_bytes])
+  return "Module['wasmBinary'] = Uint8Array.from([%s]);" % (bytes_str,)
+
+
 class Intermediate(object):
   counter = 0
 
@@ -2091,6 +2102,21 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       shutil.move(final, js_target)
 
       if shared.Settings.BROWSIX:
+        if final_suffix == 'js' and shared.Settings.WASM and shared.Settings.BROWSIX_INLINE_WASM:
+          wasm_content = wasm_to_uint8array(wasm_binary_target)
+          prefix = target.rsplit('.', 1)[0]
+          to_replace = """var wasmTextFile = Module['wasmTextFile'] || '%s.wast';
+  var wasmBinaryFile = Module['wasmBinaryFile'] || '%s.wasm';
+  var asmjsCodeFile = Module['asmjsCodeFile'] || '%s.temp.asm.js';""" % (prefix, prefix, prefix)
+          js_contents = slurp(target + '.js')
+          if js_contents.find(to_replace) < 0:
+            logging.error("Couldn't fixup JS+WASM file %s/%s", target, wasm_binary_target)
+            os.exit(1)
+          js_contents = js_contents.replace(to_replace, to_replace + '\n' + wasm_content)
+          with open(target + '.js', 'w') as f:
+            f.write(js_contents)
+          print 'embedded wasm in JS: %s %d' % (target, len(wasm_content))
+
         if final_suffix in EXECUTABLE_SUFFIXES and target != js_target:
           with open(target, 'w') as f:
             f.write('''#!/bin/sh
