@@ -817,6 +817,7 @@ var BROWSIX = 1; // If true, we assume we are compiling assets to run under Brow
 var BROWSIX_SHM_SIZE = 16777216; // The total size of the SharedArrayBuffer shared between the
                                  // Browsix kernel and process.
 
+var BROWSIX_INLINE_WASM = 1; // copy WebAssembly into the JavaScript source file.
 
 var USE_PTHREADS = 0; // If true, enables support for pthreads.
 
