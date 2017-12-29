@@ -384,6 +384,11 @@ var BrowsixLibrary = {
         var fd = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
       };
+      exports.__syscall42 = function(which, varargs) { // pipe
+        let SYS_PIPE2 = 41;
+        let pipefd = SYSCALLS.get();
+        return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, 0);
+      };
       exports.__syscall146 = function(which, varargs) { // writev
         SYSCALLS.varargs = varargs;
         let SYS_WRITE = 4;
@@ -412,6 +417,28 @@ var BrowsixLibrary = {
           }
         }
         return ret;
+      };
+      exports.__syscall221 = function(which, varargs) { // fcntl64
+        SYSCALLS.varargs = varargs;
+        let SYS_FCNTL64 = 221;
+        let fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+        let arg = 0;
+
+        // only some of the commands have multiple arguments.
+        switch (cmd) {
+        case {{{ cDefine('F_DUPFD') }}}:
+        case {{{ cDefine('F_SETFL') }}}:
+        case {{{ cDefine('F_GETLK') }}}:
+        case {{{ cDefine('F_GETLK64') }}}:
+          arg = SYSCALLS.get();
+        }
+
+        return BROWSIX.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
+      };
+      exports.__syscall331 = function(which, varargs) { // pipe2
+        let SYS_PIPE2 = 41;
+        let pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
+        return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
       };
 
       return exports;
@@ -2735,56 +2762,7 @@ var BrowsixLibrary = {
     if (old.fd === suggestFD) return -ERRNO_CODES.EINVAL;
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
-  __syscall331: function(which, varargs) { // pipe2
-#if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX) {
-#if EMTERPRETIFY_ASYNC
-      return EmterpreterAsync.handle(function(resume) {
-        var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
-        var done = function(err, fd1, fd2) {
-          if (!err) {
-            HEAP32[(pipefd>>2)] = fd1;
-            HEAP32[(pipefd>>2)+1] = fd2;
-          }
-          resume(function() {
-            return err || 0;
-          });
-        };
-        BROWSIX.browsix.syscall.syscallAsync(done, 'pipe2', [flags]);
-      });
-#else
-      var SYS_PIPE2 = 41;
-      var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
-      return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
-#endif
-    }
-#endif
-    return -ERRNO_CODES.ENOSYS; // unsupported feature
-  },
-  __syscall333: function(which, varargs) { // preadv
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
-    return SYSCALLS.doReadv(stream, iov, iovcnt, offset);
-  },
-  __syscall334: function(which, varargs) { // pwritev
-#if SYSCALL_DEBUG
-    Module.printErr('warning: untested syscall');
-#endif
-    var stream = SYSCALLS.getStreamFromFD(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get(), offset = SYSCALLS.get();
-    return SYSCALLS.doWritev(stream, iov, iovcnt, offset);
-  },
-  __syscall340: function(which, varargs) { // prlimit64
-    var pid = SYSCALLS.get(), resource = SYSCALLS.get(), new_limit = SYSCALLS.get(), old_limit = SYSCALLS.get();
-    if (old_limit) { // just report no limits
-      {{{ makeSetValue('old_limit', C_STRUCTS.rlimit.rlim_cur, '-1', 'i32') }}};  // RLIM_INFINITY
-      {{{ makeSetValue('old_limit', C_STRUCTS.rlimit.rlim_cur + 4, '-1', 'i32') }}};  // RLIM_INFINITY
-      {{{ makeSetValue('old_limit', C_STRUCTS.rlimit.rlim_max, '-1', 'i32') }}};  // RLIM_INFINITY
-      {{{ makeSetValue('old_limit', C_STRUCTS.rlimit.rlim_max + 4, '-1', 'i32') }}};  // RLIM_INFINITY
-    }
-    return 0;
-  },
+
 */
 };
 
