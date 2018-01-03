@@ -567,13 +567,13 @@ var BrowsixLibrary = {
         let fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
       };
-      exports.__syscall142: function(which, varargs) { // newselect
+      exports.__syscall142 = function(which, varargs) { // newselect
         SYSCALLS.varargs = varargs;
         console.log('TODO: socketcall');
         abort('newselect not implemented');
         return;
       };
-      exports.__syscall145: function(which, varargs) { // readv
+      exports.__syscall145 = function(which, varargs) { // readv
         SYSCALLS.varargs = varargs;
         let SYS_READ = 3;
         let fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
@@ -678,7 +678,7 @@ var BrowsixLibrary = {
           BROWSIX.browsix.copyToUser(ptr, shmBuf, shmBuf.length);
         return ret;
       };
-      exports.__syscall196: function(which, varargs) { // SYS_lstat64
+      exports.__syscall196 = function(which, varargs) { // SYS_lstat64
         SYSCALLS.varargs = varargs;
         let SYS_LSTAT = 196;
         let path = SYSCALLS.get(), ptr = SYSCALLS.get();
@@ -690,7 +690,7 @@ var BrowsixLibrary = {
           BROWSIX.browsix.copyToUser(ptr, shmBuf, shmBuf.length);
         return ret;
       };
-      exports.__syscall197: function(which, varargs) { // SYS_fstat64
+      exports.__syscall197 = function(which, varargs) { // SYS_fstat64
         SYSCALLS.varargs = varargs;
         let SYS_FSTAT = 197;
         let path = SYSCALLS.get(), ptr = SYSCALLS.get();
@@ -706,8 +706,9 @@ var BrowsixLibrary = {
         SYSCALLS.varargs = varargs;
         let SYS_GETDENTS64 = 220;
         let fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
-        let shmBuf = BROWSIX.browsix.getShm({{{ C_STRUCTS.dirent.__size__ }}} * count);
-        let ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, BROWSIX.browsix.SHM_OFF, count);
+        // let shmBuf = BROWSIX.browsix.getShm({{{ C_STRUCTS.dirent.__size__ }}} * count);
+        let shmBuf = BROWSIX.browsix.getShm(count);
+        let ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
         if (ret >= 0)
           BROWSIX.browsix.copyToUser(dirp, shmBuf, shmBuf.length);
         return ret;
