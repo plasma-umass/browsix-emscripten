@@ -722,6 +722,7 @@ var BrowsixLibrary = {
         // only some of the commands have multiple arguments.
         switch (cmd) {
         case {{{ cDefine('F_DUPFD') }}}:
+        case {{{ cDefine('F_SETFD') }}}:
         case {{{ cDefine('F_SETFL') }}}:
         case {{{ cDefine('F_GETLK') }}}:
         case {{{ cDefine('F_GETLK64') }}}:
