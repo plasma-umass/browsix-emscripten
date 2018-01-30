@@ -33,6 +33,7 @@ from tools import shared, jsrun, system_libs
 from tools.shared import execute, suffix, unsuffixed, unsuffixed_basename, WINDOWS, safe_move
 from tools.response_file import read_response_file
 import tools.line_endings
+import tempfile
 
 # endings = dot + a suffix, safe to test by  filename.endswith(endings)
 C_ENDINGS = ('.c', '.C', '.i')
@@ -89,6 +90,27 @@ AUTODEBUG = os.environ.get('EMCC_AUTODEBUG') # If set to 1, we will run the auto
                                              # Note that this will disable inclusion of libraries. This is useful because including
                                              # dlmalloc makes it hard to compare native and js builds
 EMCC_CFLAGS = os.environ.get('EMCC_CFLAGS') # Additional compiler flags that we treat as if they were passed to us on the commandline
+
+BROWSIX_WRAPPER_TEMP = """
+#include <stdlib.h> 
+#include <stdio.h>
+extern "C"{
+int main(int, char**);
+%s
+__attribute__((used))
+void
+_browsix_start(int argc, char *argv[]) 
+{
+%s
+int result = main (argc, argv);
+%s
+exit (result);
+}
+}"""
+      
+EMTORS_FILEPATH = "/tmp/emcc_tors"
+  
+BROWSIX_WRAPPER_FILEPATH = "/tmp/browsix_wrapper.cpp"
 
 # Target options
 final = None
@@ -1318,17 +1340,82 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
         logging.debug(('just preprocessor ' if '-E' in newargs else 'just dependencies: ') + ' '.join(cmd))
         exit(subprocess.call(cmd))
 
-      def compile_source_file(i, input_file):
+      def compile_source_file(i, input_file, browsix_file = None):
         logging.debug('compiling source file: ' + input_file)
         output_file = get_bitcode_file(input_file)
-        temp_files.append((i, output_file))
+        if browsix_file is None:
+          temp_files.append((i, output_file))
         args = get_bitcode_args([input_file]) + ['-emit-llvm', '-c', '-o', output_file]
         logging.debug("running: " + ' '.join(shared.Building.doublequote_spaces(args))) # NOTE: Printing this line here in this specific format is important, it is parsed to implement the "emcc --cflags" command
         execute(args) # let compiler frontend print directly, so colors are saved (PIPE kills that)
         if not os.path.exists(output_file):
           logging.error('compiler frontend failed to generate LLVM bitcode, halting')
           sys.exit(1)
+      
+      def get_llvm_ctors_dtors(i, input_file):
+        logging.debug('converting source file to .ll: ' + input_file)
+        output_file = get_bitcode_file(input_file)
+        output_file = output_file.replace ('.o', '.ll')
+        args = get_bitcode_args([input_file]) + ['-emit-llvm', '-S', '-o', output_file]
+        logging.debug("running: " + ' '.join(shared.Building.doublequote_spaces(args))) # NOTE: Printing this line here in this specific format is important, it is parsed to implement the "emcc --cflags" command
+        execute(args) # let compiler frontend print directly, so colors are saved (PIPE kills that)
+        if not os.path.exists(output_file):
+          logging.error('compiler frontend failed to generate LLVM IR, halting' + "ARGS:"+str(args))
+          sys.exit(1)
+        sf = slurp (output_file)
+        ctors = []
+        dtors = []
+        for d in re.findall (r'@llvm.global_ctors\s=\s(.+)', sf):
+          ctors += re.findall (r'@([\w_\d]+),', d)
+        for d in re.findall (r'@llvm.global_dtors\s=\s(.+)', sf):
+          dtors += re.findall (r'@([\w_\d]+),', d)
+        
+        return (ctors, dtors)
+        
+      def create_browsix_wrapper_file (emcc_tors):
+        if not os.path.exists (emcc_tors):
+          return False
+          
+        s = slurp (emcc_tors)
+        tors_decl = "\n".join(re.findall(r'<tors_decl>(.+?)</tors_decl>', s))
+        ctors = "\n".join(re.findall(r'<ctors>(.+?)</ctors>', s))
+        dtors = "\n".join(re.findall(r'<dtors>(.+?)</dtors>', s))
+        
+        final_browsix_wrapper_str = BROWSIX_WRAPPER_TEMP % (tors_decl, ctors, dtors)
+        f = open (BROWSIX_WRAPPER_FILEPATH, 'w')
+        f.write (final_browsix_wrapper_str)
+        f.close ()
+        
+        return True
+        
+      ctors, dtors = [],[]
+      for i, input_file in input_files:
+        file_ending = filename_type_ending(input_file)
+        if file_ending.endswith(SOURCE_ENDINGS):
+          _ctors, _dtors = get_llvm_ctors_dtors (i, input_file)
+          ctors += _ctors
+          dtors += _dtors
+      main_call = "	int result = main(argc, argv);"
 
+      if (ctors != [] or dtors != []):
+        tors_decl = ""
+        
+        for tor in ctors+dtors:
+          tors_decl += "void %s (void);"%tor
+        
+        ctor_calls = ""
+        dtor_calls = ""
+        for ctor in ctors:
+          ctor_calls += ctor+"();"
+        
+        for dtor in dtors:
+          dtor_calls += dtor+"();"
+          
+        emcc_tors = EMTORS_FILEPATH
+        f = open (emcc_tors, 'a')
+        f.write ("<tors_decl> " + tors_decl + "</tors_decl>\n" + "<ctors>" + ctor_calls +"</ctors>\n" + "<dtors>" + dtor_calls + "</dtors>\n")
+        f.close ()
+          
       # First, generate LLVM bitcode. For each input file, we get base.o with bitcode
       for i, input_file in input_files:
         file_ending = filename_type_ending(input_file)
@@ -1447,6 +1534,14 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # First, combine the bitcode files if there are several. We must also link if we have a singleton .a
       if len(input_files) + len(extra_files_to_link) > 1 or \
          (not LEAVE_INPUTS_RAW and not (suffix(temp_files[0][1]) in BITCODE_ENDINGS or suffix(temp_files[0][1]) in DYNAMICLIB_ENDINGS) and shared.Building.is_ar(temp_files[0][1])):
+        
+        if create_browsix_wrapper_file (EMTORS_FILEPATH):
+          os.remove (EMTORS_FILEPATH)
+          ii = len(input_files)+1
+          input_files += [(ii, BROWSIX_WRAPPER_FILEPATH)]
+          compile_source_file(ii, BROWSIX_WRAPPER_FILEPATH)
+          linker_inputs += [temp_files[-1][1]]
+        
         linker_inputs += extra_files_to_link
         logging.debug('linking: ' + str(linker_inputs))
         # force archive contents to all be included, if just archives, or if linking shared modules

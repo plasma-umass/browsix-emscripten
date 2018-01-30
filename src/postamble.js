@@ -187,7 +187,10 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     // that will call the user's real main() for the application.
     var ret = Module['_proxy_main'](argc, argv, 0);
 #else
-    var ret = Module['_main'](argc, argv, 0);
+    if (Module['__browsix_start'] == undefined)
+      var ret = Module['_main'](argc, argv, 0);
+    else
+      var ret = Module['__browsix_start'](argc, argv, 0);
 #endif
 
 #if BENCHMARK
