@@ -1,12 +1,12 @@
 var BrowsixLibrary = {
   $BROWSIX__deps: [
 #if EMTERPRETIFY_ASYNC
-                   '$EmterpreterAsync', 'fflush',
+    '$EmterpreterAsync', 'fflush',
 #endif
 #if SYSCALL_DEBUG
-                   '$ERRNO_MESSAGES',
+    '$ERRNO_MESSAGES',
 #endif
-                   '$ENV',
+    '$ENV',
   ],
   $BROWSIX: {
     browsix: (function() {
@@ -14,10 +14,7 @@ var BrowsixLibrary = {
 
       exports.async = true;
       exports.waitOff = -1;
-      exports.syncMsg = {
-        trap: 0|0,
-        args: [0|0, 0|0, 0|0, 0|0, 0|0, 0|0],
-      };
+      exports.syncMsg = {};
 
       exports.SHM_SIZE = {{{ BROWSIX_SHM_SIZE }}};
       exports.shm = null;
@@ -105,26 +102,27 @@ var BrowsixLibrary = {
           }, transferrables);
         };
         USyscalls.prototype.sync = function (trap, a1, a2, a3, a4, a5, a6) {
-          var waitOff = BROWSIX.browsix.waitOff;
-          var syncMsg = BROWSIX.browsix.syncMsg;
-          syncMsg.trap = trap|0;
-          syncMsg.args[0] = a1|0;
-          syncMsg.args[1] = a2|0;
-          syncMsg.args[2] = a3|0;
-          syncMsg.args[3] = a4|0;
-          syncMsg.args[4] = a5|0;
-          syncMsg.args[5] = a6|0;
+          const waitOff = BROWSIX.browsix.waitOff;
+          const waitOff32 = waitOff >> 2;
+          BROWSIX.browsix.shm32[waitOff + 1] = trap|0;
+          BROWSIX.browsix.shm32[waitOff + 2] = a1|0;
+          BROWSIX.browsix.shm32[waitOff + 3] = a2|0;
+          BROWSIX.browsix.shm32[waitOff + 4] = a3|0;
+          BROWSIX.browsix.shm32[waitOff + 5] = a4|0;
+          BROWSIX.browsix.shm32[waitOff + 6] = a5|0;
+          BROWSIX.browsix.shm32[waitOff + 7] = a6|0;
+          BROWSIX.browsix.shm32[waitOff + 8] = 0;
 
-          Atomics.store(BROWSIX.browsix.shm32, waitOff >> 2, 0);
-          self.postMessage(syncMsg);
-          var paranoid = Atomics.load(BROWSIX.browsix.shm32, waitOff >> 2)|0;
-          if (paranoid !== 1 && paranoid !== 0) {
-            Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
-            debugger;
-          }
-          Atomics.wait(BROWSIX.browsix.shm32, waitOff >> 2, 0);
-          Atomics.store(BROWSIX.browsix.shm32, waitOff >> 2, 0);
-          return Atomics.load(BROWSIX.browsix.shm32, (waitOff >> 2) + 1);
+          Atomics.store(BROWSIX.browsix.shm32, waitOff32, 0);
+          self.postMessage(BROWSIX.browsix.syncMsg);
+          /* var paranoid = Atomics.load(BROWSIX.browsix.shm32, waitOff >> 2)|0;
+           * if (paranoid !== 1 && paranoid !== 0) {
+           *   Module.printErr('WARN: someone wrote over our futex alloc(' + waitOff + '): ' + paranoid);
+           *   debugger;
+           * } */
+          Atomics.wait(BROWSIX.browsix.shm32, waitOff32, 0);
+          BROWSIX.browsix.shm32[waitOff32] = 0;
+          return BROWSIX.browsix.shm32[waitOff32 + 8];
         };
         USyscalls.prototype.usleep = function(useconds) {
           // int usleep(useconds_t useconds);
@@ -375,7 +373,7 @@ var BrowsixLibrary = {
 
           let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
           if (count < 0)
-              return ret === 0 ? count : ret;
+            return ret === 0 ? count : ret;
 
           BROWSIX.browsix.copyToUser(ptr, shmBuf, count);
           ret += count;
@@ -721,12 +719,12 @@ var BrowsixLibrary = {
 
         // only some of the commands have multiple arguments.
         switch (cmd) {
-        case {{{ cDefine('F_DUPFD') }}}:
-        case {{{ cDefine('F_SETFD') }}}:
-        case {{{ cDefine('F_SETFL') }}}:
-        case {{{ cDefine('F_GETLK') }}}:
-        case {{{ cDefine('F_GETLK64') }}}:
-          arg = SYSCALLS.get();
+          case {{{ cDefine('F_DUPFD') }}}:
+          case {{{ cDefine('F_SETFD') }}}:
+          case {{{ cDefine('F_SETFL') }}}:
+          case {{{ cDefine('F_GETLK') }}}:
+          case {{{ cDefine('F_GETLK64') }}}:
+            arg = SYSCALLS.get();
         }
 
         return BROWSIX.browsix.syscall.sync(SYS_FCNTL64, fd, cmd, arg);
