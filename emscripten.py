@@ -405,9 +405,7 @@ def create_module_asmjs(function_table_sigs, metadata,
   asm_end = create_asm_end(exports)
 
   if shared.Settings.BROWSIX:
-    runtime_funcs = ['function initRuntimeFuncs () {\n%s\n}\n' % ('\n'.join(runtime_funcs),)]
-    runtime_funcs += ['if (!ENVIRONMENT_IS_BROWSIX) {\n  initRuntimeFuncs();\n}\n']
-    receiving = 'function initReceiving () {\n%s\n} ' % (receiving,)
+    receiving = 'function initReceiving() {\n%s\n}\n' % (receiving,)
     receiving += 'if (!ENVIRONMENT_IS_BROWSIX) {\n  initReceiving();\n}\n'
 
   module = [

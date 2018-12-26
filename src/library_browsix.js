@@ -320,12 +320,6 @@ var BrowsixLibrary = {
           var waitOff = 0;
           BROWSIX.browsix.waitOff = waitOff;
 
-          // the original spec called for buffer to be in the transfer
-          // list, but the current spec (and dev versions of Chrome)
-          // don't support that.  Try it the old way, and if it
-          // doesn't work try it the new way.
-          BROWSIX.browsix.syscall.syscallAsync(personalityChanged, 'personality',
-                                               [PER_BLOCKING, BROWSIX.browsix.shm, waitOff], []);
           function personalityChanged(err) {
             if (err) {
               console.log('personality: ' + err);
@@ -346,6 +340,14 @@ var BrowsixLibrary = {
             initRuntimeFuncs();
             Runtime.process.emit('ready');
           }
+          // the original spec called for buffer to be in the transfer
+          // list, but the current spec (and dev versions of Chrome)
+          // don't support that.  Try it the old way, and if it
+          // doesn't work try it the new way.
+          BROWSIX.browsix.syscall.syscallAsync((err) => {
+            setTimeout(personalityChanged, 0, err)
+          }, 'personality', [PER_BLOCKING, BROWSIX.browsix.shm, waitOff], []);
+
         }
 #endif
       }

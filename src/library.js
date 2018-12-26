@@ -651,7 +651,7 @@ LibraryManager.library = {
         ENV['_'] = Module['thisProgram'];
       }
       // Allocate memory.
-      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_NORMAL););
+      poolPtr = allocate(TOTAL_ENV_SIZE, 'i8', ALLOC_NORMAL);
       envPtr = allocate(MAX_ENV_VALUES * {{{ Runtime.POINTER_SIZE }}},
                         'i8*', ALLOC_NORMAL);
       {{{ makeSetValue('envPtr', '0', 'poolPtr', 'i8*') }}};
