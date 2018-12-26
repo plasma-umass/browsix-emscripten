@@ -404,7 +404,7 @@ def create_module_asmjs(function_table_sigs, metadata,
 
   asm_end = create_asm_end(exports)
 
-  if settings.get('BROWSIX'):
+  if shared.Settings.BROWSIX:
     runtime_funcs = 'function initRuntimeFuncs () {\n%s\n} ' % (runtime_funcs,)
     runtime_funcs += 'if (!ENVIRONMENT_IS_BROWSIX)\n    initRuntimeFuncs();'
     receiving = 'function initReceiving () {\n%s\n} ' % (receiving,)
@@ -1431,11 +1431,11 @@ def create_asm_runtime_funcs():
     funcs += ['setDynamicTop']
   if shared.Settings.ONLY_MY_CODE:
     funcs = []
-  if settings.get('EMTERPRETIFY'):
+  if shared.Settings.EMTERPRETIFY:
     funcs += ['emterpret']
-    if settings.get('EMTERPRETIFY_ASYNC'):
+    if shared.Settings.EMTERPRETIFY_ASYNC:
       funcs += ['setAsyncState', 'emtStackSave', 'emtStackRestore']
-      if settings['BROWSIX']:
+      if shared.Settings.BROWSIX:
         funcs += ['update_heap']
   return funcs
 
@@ -1478,12 +1478,12 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
 };
 ''' for s in receiving)
   if not shared.Settings.SWAPPABLE_ASM_MODULE:
-    if settings['BROWSIX']:
+    if shared.Settings.BROWSIX:
       receiving += ';\n'.join([s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data)])
     else:
       receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data)])
   else:
-    if settings['BROWSIX']:
+    if shared.Settings.BROWSIX:
       receiving += 'Module["asm"] = asm;\n' + ';\n'.join([s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data)])
     else:
       receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data)])
@@ -1729,7 +1729,7 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata):
   asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
                       'var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {')
 
-  if settings.get('BROWSIX'):
+  if shared.Settings.BROWSIX:
     asm_function_top = ('var asm = undefined;\n'
                         '// EMSCRIPTEN_START_ASM\n'
                         'var asmModule = (function(global, env, buffer) {')
@@ -1805,7 +1805,7 @@ def create_asm_end(exports):
 })
 // EMSCRIPTEN_END_ASM
 ''' % (exports,)
-  if not settings.get('BROWSIX'):
+  if not shared.Settings.BROWSIX:
     end += '(Module%s, Module%s, buffer);\n' % (access_quote('asmGlobalArg'), access_quote('asmLibraryArg'))
   else:
     end += '''\nif (!ENVIRONMENT_IS_BROWSIX) {
