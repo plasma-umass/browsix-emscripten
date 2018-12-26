@@ -237,12 +237,12 @@ var BrowsixLibrary = {
 
           assert(HEAP32.buffer === Runtime.process.parentBuffer);
 
-          if (typeof asmModule !== 'undefined')
+          if (typeof asmModule !== 'undefined') {
             asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-          else
+          } else {
             asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          }
           initReceiving();
-          initRuntimeFuncs();
 
           asm.stackRestore(forkArgs.stackSave);
           asm.emtStackRestore(forkArgs.emtStackTop);
@@ -262,7 +262,6 @@ var BrowsixLibrary = {
             asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
         }
         initReceiving();
-        initRuntimeFuncs();
         Runtime.process.isReady = true;
         setTimeout(function () { Runtime.process.emit('ready'); }, 0);
 #else
@@ -337,7 +336,6 @@ var BrowsixLibrary = {
             if (typeof asm !== 'object')
               asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
             initReceiving();
-            initRuntimeFuncs();
             Runtime.process.emit('ready');
           }
           // the original spec called for buffer to be in the transfer
