@@ -1085,9 +1085,6 @@ var BROWSIX = 1;
 // The total size of the SharedArrayBuffer shared between the Browsix kernel and process.
 var BROWSIX_SHM_SIZE = 16777216;
 
-// copy WebAssembly into the JavaScript source file.
-var BROWSIX_INLINE_WASM = 1;
-
 // Compiler debugging options
 //
 // Some useful items:
