@@ -375,14 +375,6 @@ function exit(status, implicit) {
 #endif // EXIT_RUNTIME
 #endif // ASSERTIONS
 
-  // if this is just main exit-ing implicitly, and the status is 0, then we
-  // don't need to do anything here and can just leave. if the status is
-  // non-zero, though, then we need to report it.
-  // (we may have warned about this earlier, if a situation justifies doing so)
-  if (implicit && Module['noExitRuntime'] && status === 0) {
-    return;
-  }
-
 #if BROWSIX
   // we don't care about noExitRuntime for explicit exit calls in Browsix()
   if (ENVIRONMENT_IS_BROWSIX) {
@@ -400,6 +392,14 @@ function exit(status, implicit) {
     }
   }
 #endif
+
+  // if this is just main exit-ing implicitly, and the status is 0, then we
+  // don't need to do anything here and can just leave. if the status is
+  // non-zero, though, then we need to report it.
+  // (we may have warned about this earlier, if a situation justifies doing so)
+  if (implicit && Module['noExitRuntime'] && status === 0) {
+    return;
+  }
 
   if (Module['noExitRuntime']) {
 #if ASSERTIONS
@@ -509,7 +509,7 @@ if (ENVIRONMENT_IS_BROWSIX) {
     } else {
       var args = Runtime.process.argv.slice(2);
       Module['arguments'] = args;
-      run(args);
+      setTimeout(run, 0, args);
     }
   });
 } else if (typeof ENVIRONMENT_IS_PTHREAD === 'undefined' || !ENVIRONMENT_IS_PTHREAD) {

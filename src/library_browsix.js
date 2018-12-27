@@ -1,7 +1,7 @@
 var BrowsixLibrary = {
   $BROWSIX__deps: [
 #if EMTERPRETIFY_ASYNC
-    '$EmterpreterAsync', 'fflush',
+    '$EmterpreterAsync', 'fflush', 'memcpy',
 #endif
 #if SYSCALL_DEBUG
     '$ERRNO_MESSAGES',
@@ -19,6 +19,7 @@ var BrowsixLibrary = {
       exports.SHM_SIZE = {{{ BROWSIX_SHM_SIZE }}};
       exports.shm = null;
       exports.shmU8 = null;
+      exports.shm8 = null;
       exports.shm32 = null;
       exports.SHM_OFF = 128;
       exports.SHM_BUF_SIZE = {{{ BROWSIX_SHM_SIZE - 128 }}};
@@ -256,10 +257,9 @@ var BrowsixLibrary = {
 #if EMTERPRETIFY_ASYNC
         BROWSIX.browsix.async = true;
         if (!asm || typeof asm['_main'] === 'undefined') {
-          if (typeof asmModule !== 'undefined')
+          if (typeof asmModule !== 'undefined') {
             asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-          else
-            asm = asm(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+          }
         }
         initReceiving();
         Runtime.process.isReady = true;
@@ -281,17 +281,15 @@ var BrowsixLibrary = {
 
         if (typeof gc === 'function') gc();
 
-        init2();
+        init2(0);
         function init2(attempt) {
-          if (!attempt)
-            attempt = 0;
-
           if (typeof gc === 'function') gc();
 
           var oldHEAP8 = HEAP8;
           try {
             BROWSIX.browsix.shm = new SharedArrayBuffer(BROWSIX.browsix.SHM_SIZE);
             BROWSIX.browsix.shmU8 = new Uint8Array(BROWSIX.browsix.shm);
+            BROWSIX.browsix.shm8 = new Int8Array(BROWSIX.browsix.shm);
             BROWSIX.browsix.shm32 = new Int32Array(BROWSIX.browsix.shm);
           } catch (e) {
             if (attempt >= 16)
@@ -342,10 +340,9 @@ var BrowsixLibrary = {
           // list, but the current spec (and dev versions of Chrome)
           // don't support that.  Try it the old way, and if it
           // doesn't work try it the new way.
-          BROWSIX.browsix.syscall.syscallAsync((err) => {
-            setTimeout(personalityChanged, 0, err)
-          }, 'personality', [PER_BLOCKING, BROWSIX.browsix.shm, waitOff], []);
-
+          BROWSIX.browsix.syscall.syscallAsync(
+            personalityChanged, 'personality',
+            [PER_BLOCKING, BROWSIX.browsix.shm, waitOff], []);
         }
 #endif
       }
