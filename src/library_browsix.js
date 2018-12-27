@@ -24,19 +24,12 @@ var BrowsixLibrary = {
       exports.SHM_OFF = 128;
       exports.SHM_BUF_SIZE = {{{ BROWSIX_SHM_SIZE - 128 }}};
 
-      exports.getShm = function(len) {
-        if (len > BROWSIX.browsix.SHM_BUF_SIZE)
-          len = BROWSIX.browsix.SHM_BUF_SIZE;
-
-        let off = BROWSIX.browsix.SHM_OFF;
-        return new Uint8Array(BROWSIX.browsix.shm, off, len);
+      exports.getShmLen = function(len) {
+        return (len > BROWSIX.browsix.SHM_BUF_SIZE) ? BROWSIX.browsix.SHM_BUF_SIZE : len;
       };
 
-      exports.getShmAt = function(off, len) {
-        if (off + len > BROWSIX.browsix.SHM_BUF_SIZE)
-          len = BROWSIX.browsix.SHM_BUF_SIZE - off;
-
-        return new Uint8Array(BROWSIX.browsix.shm, off, len);
+      exports.getShmLenAt = function(off, len) {
+        return (off + len > BROWSIX.browsix.SHM_BUF_SIZE) ? BROWSIX.browsix.SHM_BUF_SIZE - off : len;
       };
 
       // copy a zero-terminated (C) string to our shared buffer
@@ -51,21 +44,161 @@ var BrowsixLibrary = {
         return off + i + 1;
       };
 
-      // copy part of user's heap into shared buffer
-      exports.copyFromUser = function(shmBuf, ptr) {
-        // shmBuf.set(HEAPU8.subarray(ptr, ptr+shmBuf.length));
-        for (let i = 0; i < shmBuf.length; i++)
-          shmBuf[i] = HEAPU8[ptr + i];
+      exports.copyFromUser = function(dest, src, num) {
+        dest = dest|0; src = src|0; num = num|0;
+        var SHM8 = BROWSIX.browsix.shm8;
+        var SHM32 = BROWSIX.browsix.shm32;
+        var ret = 0;
+        var aligned_dest_end = 0;
+        var block_aligned_dest_end = 0;
+        var dest_end = 0;
+        // Test against a benchmarked cutoff limit for when HEAPU8.set() becomes faster to use.
+        if ((num|0) >=
+          8192
+        ) {
+          return BROWSIX.browsix.copyFromUserBig(dest|0, src|0, num|0)|0;
+        }
+
+        ret = dest|0;
+        dest_end = (dest + num)|0;
+        if ((dest&3) == (src&3)) {
+          // The initial unaligned < 4-byte front.
+          while (dest & 3) {
+            if ((num|0) == 0) return ret|0;
+            SHM8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+            dest = (dest+1)|0;
+            src = (src+1)|0;
+            num = (num-1)|0;
+          }
+          aligned_dest_end = (dest_end & -4)|0;
+          block_aligned_dest_end = (aligned_dest_end - 64)|0;
+          while ((dest|0) <= (block_aligned_dest_end|0) ) {
+            SHM32[((dest)>>2)]=((HEAP32[((src)>>2)])|0);
+            SHM32[(((dest)+(4))>>2)]=((HEAP32[(((src)+(4))>>2)])|0);
+            SHM32[(((dest)+(8))>>2)]=((HEAP32[(((src)+(8))>>2)])|0);
+            SHM32[(((dest)+(12))>>2)]=((HEAP32[(((src)+(12))>>2)])|0);
+            SHM32[(((dest)+(16))>>2)]=((HEAP32[(((src)+(16))>>2)])|0);
+            SHM32[(((dest)+(20))>>2)]=((HEAP32[(((src)+(20))>>2)])|0);
+            SHM32[(((dest)+(24))>>2)]=((HEAP32[(((src)+(24))>>2)])|0);
+            SHM32[(((dest)+(28))>>2)]=((HEAP32[(((src)+(28))>>2)])|0);
+            SHM32[(((dest)+(32))>>2)]=((HEAP32[(((src)+(32))>>2)])|0);
+            SHM32[(((dest)+(36))>>2)]=((HEAP32[(((src)+(36))>>2)])|0);
+            SHM32[(((dest)+(40))>>2)]=((HEAP32[(((src)+(40))>>2)])|0);
+            SHM32[(((dest)+(44))>>2)]=((HEAP32[(((src)+(44))>>2)])|0);
+            SHM32[(((dest)+(48))>>2)]=((HEAP32[(((src)+(48))>>2)])|0);
+            SHM32[(((dest)+(52))>>2)]=((HEAP32[(((src)+(52))>>2)])|0);
+            SHM32[(((dest)+(56))>>2)]=((HEAP32[(((src)+(56))>>2)])|0);
+            SHM32[(((dest)+(60))>>2)]=((HEAP32[(((src)+(60))>>2)])|0);
+            dest = (dest+64)|0;
+            src = (src+64)|0;
+          }
+          while ((dest|0) < (aligned_dest_end|0) ) {
+            SHM32[((dest)>>2)]=((HEAP32[((src)>>2)])|0);
+            dest = (dest+4)|0;
+            src = (src+4)|0;
+          }
+        } else {
+          // In the unaligned copy case, unroll a bit as well.
+          aligned_dest_end = (dest_end - 4)|0;
+          while ((dest|0) < (aligned_dest_end|0) ) {
+            SHM8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+            SHM8[(((dest)+(1))>>0)]=((HEAP8[(((src)+(1))>>0)])|0);
+            SHM8[(((dest)+(2))>>0)]=((HEAP8[(((src)+(2))>>0)])|0);
+            SHM8[(((dest)+(3))>>0)]=((HEAP8[(((src)+(3))>>0)])|0);
+            dest = (dest+4)|0;
+            src = (src+4)|0;
+          }
+        }
+        // The remaining unaligned < 4 byte tail.
+        while ((dest|0) < (dest_end|0)) {
+          SHM8[((dest)>>0)]=((HEAP8[((src)>>0)])|0);
+          dest = (dest+1)|0;
+          src = (src+1)|0;
+        }
+        return ret|0;
       };
 
-      exports.copyToUser = function(ptr, shmBuf, len) {
-        if (len === undefined)
-          len = shmBuf.length;
-        // let buf = HEAPU8.subarray(ptr, ptr+len);
-        // buf.set(shmBuf.subarray(0, len));
-        for (let i = 0; i < len; i++)
-          HEAPU8[ptr + i] = shmBuf[i];
-      }
+      exports.copyToUser = function(dest, src, num) {
+        dest = dest|0; src = src|0; num = num|0;
+        var SHM8 = BROWSIX.browsix.shm8;
+        var SHM32 = BROWSIX.browsix.shm32;
+        var ret = 0;
+        var aligned_dest_end = 0;
+        var block_aligned_dest_end = 0;
+        var dest_end = 0;
+        // Test against a benchmarked cutoff limit for when HEAPU8.set() becomes faster to use.
+        if ((num|0) >=
+          8192
+        ) {
+          return BROWSIX.browsix.copyToUserBig(dest|0, src|0, num|0)|0;
+        }
+
+        ret = dest|0;
+        dest_end = (dest + num)|0;
+        if ((dest&3) == (src&3)) {
+          // The initial unaligned < 4-byte front.
+          while (dest & 3) {
+            if ((num|0) == 0) return ret|0;
+            HEAP8[((dest)>>0)]=((SHM8[((src)>>0)])|0);
+            dest = (dest+1)|0;
+            src = (src+1)|0;
+            num = (num-1)|0;
+          }
+          aligned_dest_end = (dest_end & -4)|0;
+          block_aligned_dest_end = (aligned_dest_end - 64)|0;
+          while ((dest|0) <= (block_aligned_dest_end|0) ) {
+            HEAP32[((dest)>>2)]=((SHM32[((src)>>2)])|0);
+            HEAP32[(((dest)+(4))>>2)]=((SHM32[(((src)+(4))>>2)])|0);
+            HEAP32[(((dest)+(8))>>2)]=((SHM32[(((src)+(8))>>2)])|0);
+            HEAP32[(((dest)+(12))>>2)]=((SHM32[(((src)+(12))>>2)])|0);
+            HEAP32[(((dest)+(16))>>2)]=((SHM32[(((src)+(16))>>2)])|0);
+            HEAP32[(((dest)+(20))>>2)]=((SHM32[(((src)+(20))>>2)])|0);
+            HEAP32[(((dest)+(24))>>2)]=((SHM32[(((src)+(24))>>2)])|0);
+            HEAP32[(((dest)+(28))>>2)]=((SHM32[(((src)+(28))>>2)])|0);
+            HEAP32[(((dest)+(32))>>2)]=((SHM32[(((src)+(32))>>2)])|0);
+            HEAP32[(((dest)+(36))>>2)]=((SHM32[(((src)+(36))>>2)])|0);
+            HEAP32[(((dest)+(40))>>2)]=((SHM32[(((src)+(40))>>2)])|0);
+            HEAP32[(((dest)+(44))>>2)]=((SHM32[(((src)+(44))>>2)])|0);
+            HEAP32[(((dest)+(48))>>2)]=((SHM32[(((src)+(48))>>2)])|0);
+            HEAP32[(((dest)+(52))>>2)]=((SHM32[(((src)+(52))>>2)])|0);
+            HEAP32[(((dest)+(56))>>2)]=((SHM32[(((src)+(56))>>2)])|0);
+            HEAP32[(((dest)+(60))>>2)]=((SHM32[(((src)+(60))>>2)])|0);
+            dest = (dest+64)|0;
+            src = (src+64)|0;
+          }
+          while ((dest|0) < (aligned_dest_end|0) ) {
+            HEAP32[((dest)>>2)]=((SHM32[((src)>>2)])|0);
+            dest = (dest+4)|0;
+            src = (src+4)|0;
+          }
+        } else {
+          // In the unaligned copy case, unroll a bit as well.
+          aligned_dest_end = (dest_end - 4)|0;
+          while ((dest|0) < (aligned_dest_end|0) ) {
+            HEAP8[((dest)>>0)]=((SHM8[((src)>>0)])|0);
+            HEAP8[(((dest)+(1))>>0)]=((SHM8[(((src)+(1))>>0)])|0);
+            HEAP8[(((dest)+(2))>>0)]=((SHM8[(((src)+(2))>>0)])|0);
+            HEAP8[(((dest)+(3))>>0)]=((SHM8[(((src)+(3))>>0)])|0);
+            dest = (dest+4)|0;
+            src = (src+4)|0;
+          }
+        }
+        // The remaining unaligned < 4 byte tail.
+        while ((dest|0) < (dest_end|0)) {
+          HEAP8[((dest)>>0)]=((SHM8[((src)>>0)])|0);
+          dest = (dest+1)|0;
+          src = (src+1)|0;
+        }
+        return ret|0;
+      };
+
+      exports.copyFromUserBig = function(dest, src, num) {
+        BROWSIX.browsix.shmU8.set(HEAPU8.subarray(src, src+num), dest);
+      };
+
+      exports.copyToUserBig = function(dest, src, num) {
+        HEAPU8.set(BROWSIX.browsix.shmU8.subarray(src, src+num), dest);
+      };
 
       var SyscallResponse = (function () {
         function SyscallResponse(id, name, args) {
@@ -366,17 +499,19 @@ var BrowsixLibrary = {
         let ret = 0;
 
         while (len > 0) {
-          let shmBuf = BROWSIX.browsix.getShm(len);
+          let shmLen = BROWSIX.browsix.getShmLen(len);
+          let shmOff = BROWSIX.browsix.SHM_OFF
 
-          let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
-          if (count < 0)
+          let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
+          if (count < 0) {
             return ret === 0 ? count : ret;
+          }
 
-          BROWSIX.browsix.copyToUser(ptr, shmBuf, count);
+          BROWSIX.browsix.copyToUser(ptr, shmOff, count);
           ret += count;
 
-          ptr += shmBuf.length;
-          len -= shmBuf.length;
+          ptr += shmLen;
+          len -= shmLen;
         }
         return ret;
       };
@@ -391,17 +526,19 @@ var BrowsixLibrary = {
         // while loop executes once, but for large source buffers
         // will iterate several times.
         while (len > 0) {
-          let shmBuf = BROWSIX.browsix.getShm(len);
+          let shmLen = BROWSIX.browsix.getShmLen(len);
+          let shmOff = BROWSIX.browsix.SHM_OFF;
 
-          BROWSIX.browsix.copyFromUser(shmBuf, ptr);
+          BROWSIX.browsix.copyFromUser(shmOff, ptr, shmLen);
 
-          var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
-          if (written < 0)
+          let written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, len);
+          if (written < 0) {
             return ret === 0 ? written : ret;
+          }
           ret += written;
 
-          ptr += shmBuf.length;
-          len -= shmBuf.length;
+          ptr += shmLen;
+          len -= shmLen;
         }
 
         return ret;
@@ -583,17 +720,18 @@ var BrowsixLibrary = {
           // while loop executes once, but for large source buffers
           // will iterate several times.
           while (len > 0) {
-            let shmBuf = BROWSIX.browsix.getShm(len);
+            let shmLen = BROWSIX.browsix.getShmLen(len);
+            let shmOff = BROWSIX.browsix.SHM_OFF;
 
-            let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
+            let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
             if (count < 0)
               return ret === 0 ? count : ret;
 
-            BROWSIX.browsix.copyToUser(ptr, shmBuf, count);
+            BROWSIX.browsix.copyToUser(ptr, shmOff, count);
             ret += count;
 
-            ptr += shmBuf.length;
-            len -= shmBuf.length;
+            ptr += shmLen;
+            len -= shmLen;
           }
         }
         return ret;
@@ -613,16 +751,19 @@ var BrowsixLibrary = {
           // while loop executes once, but for large source buffers
           // will iterate several times.
           while (len > 0) {
-            let shmBuf = BROWSIX.browsix.getShm(len);
-            shmBuf.set(new Uint8Array(buffer, ptr, shmBuf.length));
+            let shmLen = BROWSIX.browsix.getShmLen(len);
+            let shmOff = BROWSIX.browsix.SHM_OFF;
 
-            var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
-            if (written < 0)
+            BROWSIX.browsix.copyFromUser(shmOff, ptr, shmLen);
+
+            let written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, shmLen);
+            if (written < 0) {
               return ret === 0 ? written : ret;
+            }
             ret += written;
 
-            ptr += shmBuf.length;
-            len -= shmBuf.length;
+            ptr += shmLen;
+            len -= shmLen;
           }
         }
         return ret;
@@ -654,47 +795,52 @@ var BrowsixLibrary = {
         SYSCALLS.varargs = varargs;
         let SYS_GETCWD = 183;
         let ptr = SYSCALLS.get(), len = SYSCALLS.get();
-        let shmBuf = BROWSIX.browsix.getShm(len);
-        let count = BROWSIX.browsix.syscall.sync(SYS_GETCWD, BROWSIX.browsix.SHM_OFF, shmBuf.length);
-        if (count < 0)
+        let shmLen = BROWSIX.browsix.getShmLen(len);
+        let shmOff = BROWSIX.browsix.SHM_OFF;
+        let count = BROWSIX.browsix.syscall.sync(SYS_GETCWD, shmOff, shmLen);
+        if (count < 0) {
           return count;
-        BROWSIX.browsix.copyToUser(ptr, shmBuf, count);
+        }
+        BROWSIX.browsix.copyToUser(ptr, shmOff, count);
         return count;
       };
       exports.__syscall195 = function(which, varargs) { // SYS_stat64
         SYSCALLS.varargs = varargs;
         let SYS_STAT = 195;
         let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let path_off = BROWSIX.browsix.SHM_OFF;
-        let buf_off = BROWSIX.browsix.putShmString(path_off, path);
-        let shmBuf = BROWSIX.browsix.getShmAt(buf_off, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_STAT, path_off, buf_off);
-        if (ret === 0)
-          BROWSIX.browsix.copyToUser(ptr, shmBuf, shmBuf.length);
+        let pathOff = BROWSIX.browsix.SHM_OFF;
+        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        let ret = BROWSIX.browsix.syscall.sync(SYS_STAT, pathOff, bufOff);
+        if (ret === 0) {
+          BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
+        }
         return ret;
       };
       exports.__syscall196 = function(which, varargs) { // SYS_lstat64
         SYSCALLS.varargs = varargs;
         let SYS_LSTAT = 196;
         let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let path_off = BROWSIX.browsix.SHM_OFF;
-        let buf_off = BROWSIX.browsix.putShmString(path_off, path);
-        let shmBuf = BROWSIX.browsix.getShmAt(buf_off, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_LSTAT, path_off, buf_off);
-        if (ret === 0)
-          BROWSIX.browsix.copyToUser(ptr, shmBuf, shmBuf.length);
+        let pathOff = BROWSIX.browsix.SHM_OFF;
+        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        let ret = BROWSIX.browsix.syscall.sync(SYS_LSTAT, pathOff, bufOff);
+        if (ret === 0) {
+          BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
+        }
         return ret;
       };
       exports.__syscall197 = function(which, varargs) { // SYS_fstat64
         SYSCALLS.varargs = varargs;
         let SYS_FSTAT = 197;
         let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let path_off = BROWSIX.browsix.SHM_OFF;
-        let buf_off = BROWSIX.browsix.putShmString(path_off, path);
-        let shmBuf = BROWSIX.browsix.getShmAt(buf_off, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_FSTAT, path_off, buf_off);
-        if (ret === 0)
-          BROWSIX.browsix.copyToUser(ptr, shmBuf, shmBuf.length);
+        let pathOff = BROWSIX.browsix.SHM_OFF;
+        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        let ret = BROWSIX.browsix.syscall.sync(SYS_FSTAT, pathOff, bufOff);
+        if (ret === 0) {
+          BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
+        }
         return ret;
       };
       exports.__syscall220 = function(which, varargs) { // SYS_getdents64
@@ -702,10 +848,12 @@ var BrowsixLibrary = {
         let SYS_GETDENTS64 = 220;
         let fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
         // let shmBuf = BROWSIX.browsix.getShm({{{ C_STRUCTS.dirent.__size__ }}} * count);
-        let shmBuf = BROWSIX.browsix.getShm(count);
-        let ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, BROWSIX.browsix.SHM_OFF, shmBuf.length);
-        if (ret >= 0)
-          BROWSIX.browsix.copyToUser(dirp, shmBuf, shmBuf.length);
+        let shmLen = BROWSIX.browsix.getShmLen(count);
+        let shmOff = BROWSIX.browsix.SHM_OFF;
+        let ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, shmOff, shmLen);
+        if (ret >= 0) {
+          BROWSIX.browsix.copyToUser(dirp, shmOff, shmLen);
+        }
         return ret;
       };
       exports.__syscall221 = function(which, varargs) { // fcntl64
