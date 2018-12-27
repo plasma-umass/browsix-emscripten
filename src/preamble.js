@@ -58,8 +58,10 @@ var Process = (function (_super) {
     return Process;
 })(OnceEmitter);
 
-if (ENVIRONMENT_IS_BROWSIX)
+if (ENVIRONMENT_IS_BROWSIX) {
   Runtime['process'] = Runtime.process = new Process(null, null);
+  stackAlloc = undefined;
+}
 #endif
 
 #if BENCHMARK

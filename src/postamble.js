@@ -495,6 +495,7 @@ if (!ENVIRONMENT_IS_PTHREAD) // EXIT_RUNTIME=0 only applies to default behavior 
 if (ENVIRONMENT_IS_BROWSIX) {
   self.onmessage = BROWSIX.browsix.syscall.resultHandler.bind(BROWSIX.browsix.syscall);
   Runtime.process.once('ready', function() {
+    Module['calledRun'] = false;
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {
       if (!Runtime.process.env.hasOwnProperty(k))

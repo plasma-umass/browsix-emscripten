@@ -34,8 +34,8 @@ var BrowsixLibrary = {
 
       // copy a zero-terminated (C) string to our shared buffer
       exports.putShmString = function(off, ptr) {
-        let shmU8 = BROWSIX.browsix.shmU8;
-        let i = 0;
+        var shmU8 = BROWSIX.browsix.shmU8;
+        var i = 0;
         for (i = 0; i < BROWSIX.browsix.SHM_BUF_SIZE; i++) {
           shmU8[off + i] = HEAPU8[ptr + i];
           if (HEAPU8[ptr+i] === 0)
@@ -236,8 +236,8 @@ var BrowsixLibrary = {
           }, transferrables);
         };
         USyscalls.prototype.sync = function (trap, a1, a2, a3, a4, a5, a6) {
-          const waitOff = BROWSIX.browsix.waitOff;
-          const waitOff32 = waitOff >> 2;
+          var waitOff = BROWSIX.browsix.waitOff;
+          var waitOff32 = waitOff >> 2;
           BROWSIX.browsix.shm32[waitOff + 1] = trap|0;
           BROWSIX.browsix.shm32[waitOff + 2] = a1|0;
           BROWSIX.browsix.shm32[waitOff + 3] = a2|0;
@@ -464,10 +464,21 @@ var BrowsixLibrary = {
               stopXhr.send();
             }
             Runtime.process.isReady = true;
-            if (typeof asm !== 'object')
+            if (typeof asm !== 'object') {
               asm = asmModule(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
-            initReceiving();
-            Runtime.process.emit('ready');
+            }
+            debugger;
+            if (Object.keys(asm).length === 0) {
+              Module['preRun'] = Module['preRun'] || [];
+              Module['preRun'].push(function() {
+                initReceiving();
+                Runtime.process.emit('ready');
+                Module['calledRun'] = false;
+              })
+            } else {
+              initReceiving();
+              Runtime.process.emit('ready');
+            }
           }
           // the original spec called for buffer to be in the transfer
           // list, but the current spec (and dev versions of Chrome)
@@ -494,15 +505,15 @@ var BrowsixLibrary = {
       };
       exports.__syscall3 = function(which, varargs) { // read
         SYSCALLS.varargs = varargs;
-        let SYS_READ = 3;
-        let fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
-        let ret = 0;
+        var SYS_READ = 3;
+        var fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
+        var ret = 0;
 
         while (len > 0) {
-          let shmLen = BROWSIX.browsix.getShmLen(len);
-          let shmOff = BROWSIX.browsix.SHM_OFF
+          var shmLen = BROWSIX.browsix.getShmLen(len);
+          var shmOff = BROWSIX.browsix.SHM_OFF
 
-          let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
+          var count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
           if (count < 0) {
             return ret === 0 ? count : ret;
           }
@@ -517,21 +528,21 @@ var BrowsixLibrary = {
       };
       exports.__syscall4 = function(which, varargs) { // write
         SYSCALLS.varargs = varargs;
-        let SYS_WRITE = 4;
-        let fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
-        let ret = 0;
+        var SYS_WRITE = 4;
+        var fd = SYSCALLS.get(), ptr = SYSCALLS.get(), len = SYSCALLS.get();
+        var ret = 0;
 
         // it is possible for the buffer being written to be larger
         // than our shared memory segment.  In the common case this
         // while loop executes once, but for large source buffers
         // will iterate several times.
         while (len > 0) {
-          let shmLen = BROWSIX.browsix.getShmLen(len);
-          let shmOff = BROWSIX.browsix.SHM_OFF;
+          var shmLen = BROWSIX.browsix.getShmLen(len);
+          var shmOff = BROWSIX.browsix.SHM_OFF;
 
           BROWSIX.browsix.copyFromUser(shmOff, ptr, shmLen);
 
-          let written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, len);
+          var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, len);
           if (written < 0) {
             return ret === 0 ? written : ret;
           }
@@ -545,48 +556,48 @@ var BrowsixLibrary = {
       };
       exports.__syscall5 = function(which, varargs) { // open
         SYSCALLS.varargs = varargs;
-        let SYS_OPEN = 5;
-        let path = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
+        var SYS_OPEN = 5;
+        var path = SYSCALLS.get(), flags = SYSCALLS.get(), mode = SYSCALLS.get();
         BROWSIX.browsix.putShmString(BROWSIX.browsix.SHM_OFF, path);
         return BROWSIX.browsix.syscall.sync(SYS_OPEN, BROWSIX.browsix.SHM_OFF, flags, mode);
       };
       exports.__syscall6 = function(which, varargs) { // close
         SYSCALLS.varargs = varargs;
-        let SYS_CLOSE = 6;
-        let fd = SYSCALLS.get();
+        var SYS_CLOSE = 6;
+        var fd = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_CLOSE, fd);
       };
       exports.__syscall9 = function(which, varargs) { // link
         SYSCALLS.varargs = varargs;
         console.log('TODO: link');
-        let oldpath = SYSCALLS.get(), newpath = SYSCALLS.get();
+        var oldpath = SYSCALLS.get(), newpath = SYSCALLS.get();
         return -ERRNO_CODES.EMLINK; // no hardlinks for us
       };
       exports.__syscall10 = function(which, varargs) { // unlink
         SYSCALLS.varargs = varargs;
-        let SYS_UNLINK = 10;
-        let path = SYSCALLS.get();
+        var SYS_UNLINK = 10;
+        var path = SYSCALLS.get();
         BROWSIX.browsix.putShmString(BROWSIX.browsix.SHM_OFF, path);
         return BROWSIX.browsix.syscall.sync(SYS_UNLINK, BROWSIX.browsix.SHM_OFF);
       };
       exports.__syscall11 = function(which, varargs) { // execve
         SYSCALLS.varargs = varargs;
-        let SYS_EXECVE = 11;
-        let filename = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
+        var SYS_EXECVE = 11;
+        var filename = SYSCALLS.get(), argv = SYSCALLS.get(), envp = SYSCALLS.get();
         console.log('TODO: execve');
         // need to think about copying argv + envp into shm
         return BROWSIX.browsix.syscall.sync(SYS_EXECVE, filename, argv, envp);
       };
       exports.__syscall12 = function(which, varargs) { // chdir
         SYSCALLS.varargs = varargs;
-        let SYS_CHDIR = 12;
-        let path = SYSCALLS.get();
+        var SYS_CHDIR = 12;
+        var path = SYSCALLS.get();
         BROWSIX.browsix.putShmString(BROWSIX.browsix.SHM_OFF, path);
         return BROWSIX.browsix.syscall.sync(SYS_CHDIR, BROWSIX.browsix.SHM_OFF);
       };
       exports.__syscall20 = function(which, varargs) { // getpid
         SYSCALLS.varargs = varargs;
-        let SYS_GETPID = 20;
+        var SYS_GETPID = 20;
         return BROWSIX.browsix.syscall.sync(SYS_GETPID);
       };
       exports.__syscall33 = function(which, varargs) { // access
@@ -598,62 +609,62 @@ var BrowsixLibrary = {
       };
       exports.__syscall37 = function(which, varargs) { // kill
         SYSCALLS.varargs = varargs;
-        let SYS_KILL = 37;
-        let pid = SYSCALLS.get(), sig = SYSCALLS.get();
+        var SYS_KILL = 37;
+        var pid = SYSCALLS.get(), sig = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_KILL, pid, sig);
       };
       exports.__syscall38 = function(which, varargs) { // rename
         SYSCALLS.varargs = varargs;
-        let SYS_RENAME = 38;
-        let old_path = SYSCALLS.get(), new_path = SYSCALLS.get();
-        let old_path_off = BROWSIX.browsix.SHM_OFF;
-        let new_path_off = BROWSIX.browsix.putShmString(old_path_off, old_path);
+        var SYS_RENAME = 38;
+        var old_path = SYSCALLS.get(), new_path = SYSCALLS.get();
+        var old_path_off = BROWSIX.browsix.SHM_OFF;
+        var new_path_off = BROWSIX.browsix.putShmString(old_path_off, old_path);
         BROWSIX.browsix.putShmString(new_path_off, new_path);
         return BROWSIX.browsix.syscall.sync(SYS_RENAME, old_path_off, new_path_off);
       };
       exports.__syscall39 = function(which, varargs) { // mkdir
         SYSCALLS.varargs = varargs;
-        let SYS_MKDIR = 39;
-        let path = SYSCALLS.get(), mode = SYSCALLS.get();
-        let path_off = BROWSIX.browsix.SHM_OFF;
+        var SYS_MKDIR = 39;
+        var path = SYSCALLS.get(), mode = SYSCALLS.get();
+        var path_off = BROWSIX.browsix.SHM_OFF;
         BROWSIX.browsix.putShmString(path_off, path);
         return BROWSIX.browsix.syscall.sync(SYS_MKDIR, path_off, mode);
       };
       exports.__syscall40 = function(which, varargs) { // rmdir
         SYSCALLS.varargs = varargs;
-        let SYS_RMDIR = 40;
-        let path = SYSCALLS.get();
-        let path_off = BROWSIX.browsix.SHM_OFF;
+        var SYS_RMDIR = 40;
+        var path = SYSCALLS.get();
+        var path_off = BROWSIX.browsix.SHM_OFF;
         BROWSIX.browsix.putShmString(path_off, path);
         return BROWSIX.browsix.syscall.sync(SYS_RMDIR, path_off);
       };
       exports.__syscall41 = function(which, varargs) { // dup
         SYSCALLS.varargs = varargs;
-        let SYS_DUP = 41;
-        let fd1 = SYSCALLS.get();
+        var SYS_DUP = 41;
+        var fd1 = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_DUP, fd1);
       }
       exports.__syscall42 = function(which, varargs) { // pipe
         SYSCALLS.varargs = varargs;
-        let SYS_PIPE2 = 41;
-        let pipefd = SYSCALLS.get();
+        var SYS_PIPE2 = 41;
+        var pipefd = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, 0);
       };
       exports.__syscall54 = function(which, varargs) { // ioctl
         SYSCALLS.varargs = varargs;
-        let SYS_IOCTL = 54;
-        let fd = SYSCALLS.get(), op = SYSCALLS.get();
+        var SYS_IOCTL = 54;
+        var fd = SYSCALLS.get(), op = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_IOCTL, fd, op);
       };
       exports.__syscall63 = function(which, varargs) { // dup2
         SYSCALLS.varargs = varargs;
-        let SYS_DUP3 = 330;
-        let fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
+        var SYS_DUP3 = 330;
+        var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_DUP3, fd1, fd2, 0);
       };
       exports.__syscall64 = function(which, varargs) { // getppid
         SYSCALLS.varargs = varargs;
-        let SYS_GETPPID = 64;
+        var SYS_GETPPID = 64;
         return BROWSIX.browsix.syscall.sync(SYS_GETPPID);
       };
       exports.__syscall83 = function(which, varargs) { // symlink
@@ -695,8 +706,8 @@ var BrowsixLibrary = {
       }
       exports.__syscall140 = function(which, varargs) { // llseek
         SYSCALLS.varargs = varargs;
-        let SYS_LLSEEK = 140;
-        let fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
+        var SYS_LLSEEK = 140;
+        var fd = SYSCALLS.get(), offhi = SYSCALLS.get(), offlo = SYSCALLS.get(), result = SYSCALLS.get(), whence = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_LLSEEK, fd, offhi, offlo, result, whence);
       };
       exports.__syscall142 = function(which, varargs) { // newselect
@@ -707,9 +718,9 @@ var BrowsixLibrary = {
       };
       exports.__syscall145 = function(which, varargs) { // readv
         SYSCALLS.varargs = varargs;
-        let SYS_READ = 3;
-        let fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-        let ret = 0;
+        var SYS_READ = 3;
+        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+        var ret = 0;
         for (var i = 0; i < iovcnt; i++) {
           var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
           var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
@@ -720,10 +731,10 @@ var BrowsixLibrary = {
           // while loop executes once, but for large source buffers
           // will iterate several times.
           while (len > 0) {
-            let shmLen = BROWSIX.browsix.getShmLen(len);
-            let shmOff = BROWSIX.browsix.SHM_OFF;
+            var shmLen = BROWSIX.browsix.getShmLen(len);
+            var shmOff = BROWSIX.browsix.SHM_OFF;
 
-            let count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
+            var count = BROWSIX.browsix.syscall.sync(SYS_READ, fd, shmOff, shmLen);
             if (count < 0)
               return ret === 0 ? count : ret;
 
@@ -738,12 +749,12 @@ var BrowsixLibrary = {
       };
       exports.__syscall146 = function(which, varargs) { // writev
         SYSCALLS.varargs = varargs;
-        let SYS_WRITE = 4;
-        let fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-        let ret = 0;
-        for (let i = 0; i < iovcnt; i++) {
-          let ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
-          let len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+        var SYS_WRITE = 4;
+        var fd = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
+        var ret = 0;
+        for (var i = 0; i < iovcnt; i++) {
+          var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+          var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
           if (len === 0)
             continue;
           // it is possible for the buffer being written to be larger
@@ -751,12 +762,12 @@ var BrowsixLibrary = {
           // while loop executes once, but for large source buffers
           // will iterate several times.
           while (len > 0) {
-            let shmLen = BROWSIX.browsix.getShmLen(len);
-            let shmOff = BROWSIX.browsix.SHM_OFF;
+            var shmLen = BROWSIX.browsix.getShmLen(len);
+            var shmOff = BROWSIX.browsix.SHM_OFF;
 
             BROWSIX.browsix.copyFromUser(shmOff, ptr, shmLen);
 
-            let written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, shmLen);
+            var written = BROWSIX.browsix.syscall.sync(SYS_WRITE, fd, shmOff, shmLen);
             if (written < 0) {
               return ret === 0 ? written : ret;
             }
@@ -776,8 +787,8 @@ var BrowsixLibrary = {
       };
       exports.__syscall174 = function(which, varargs) { // rt_sigaction
         SYSCALLS.varargs = varargs;
-        let SYS_SIGACTION = 174;
-        let signum = SYSCALLS.get(), act = SYSCALLS.get(), oldact = SYSCALLS.get();
+        var SYS_SIGACTION = 174;
+        var signum = SYSCALLS.get(), act = SYSCALLS.get(), oldact = SYSCALLS.get();
 
         // if act->sa_handler == SIG_DFL or SIG_IGN, pass along to
         // kernel.  otherwise, register the pointer here somewhere.
@@ -787,17 +798,17 @@ var BrowsixLibrary = {
       };
       exports.__syscall175 = function(which, varargs) { // rt_sigprocmask
         SYSCALLS.varargs = varargs;
-        let SYS_SIGPROCMASK = 174;
-        let how = SYSCALLS.get(), set = SYSCALLS.get(), oldset = SYSCALLS.get();
+        var SYS_SIGPROCMASK = 174;
+        var how = SYSCALLS.get(), set = SYSCALLS.get(), oldset = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_SIGPROCMASK, how, set, oldset);
       };
       exports.__syscall183 = function(which, varargs) { // getcwd
         SYSCALLS.varargs = varargs;
-        let SYS_GETCWD = 183;
-        let ptr = SYSCALLS.get(), len = SYSCALLS.get();
-        let shmLen = BROWSIX.browsix.getShmLen(len);
-        let shmOff = BROWSIX.browsix.SHM_OFF;
-        let count = BROWSIX.browsix.syscall.sync(SYS_GETCWD, shmOff, shmLen);
+        var SYS_GETCWD = 183;
+        var ptr = SYSCALLS.get(), len = SYSCALLS.get();
+        var shmLen = BROWSIX.browsix.getShmLen(len);
+        var shmOff = BROWSIX.browsix.SHM_OFF;
+        var count = BROWSIX.browsix.syscall.sync(SYS_GETCWD, shmOff, shmLen);
         if (count < 0) {
           return count;
         }
@@ -806,12 +817,12 @@ var BrowsixLibrary = {
       };
       exports.__syscall195 = function(which, varargs) { // SYS_stat64
         SYSCALLS.varargs = varargs;
-        let SYS_STAT = 195;
-        let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let pathOff = BROWSIX.browsix.SHM_OFF;
-        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
-        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_STAT, pathOff, bufOff);
+        var SYS_STAT = 195;
+        var path = SYSCALLS.get(), ptr = SYSCALLS.get();
+        var pathOff = BROWSIX.browsix.SHM_OFF;
+        var bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        var shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        var ret = BROWSIX.browsix.syscall.sync(SYS_STAT, pathOff, bufOff);
         if (ret === 0) {
           BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
         }
@@ -819,12 +830,12 @@ var BrowsixLibrary = {
       };
       exports.__syscall196 = function(which, varargs) { // SYS_lstat64
         SYSCALLS.varargs = varargs;
-        let SYS_LSTAT = 196;
-        let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let pathOff = BROWSIX.browsix.SHM_OFF;
-        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
-        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_LSTAT, pathOff, bufOff);
+        var SYS_LSTAT = 196;
+        var path = SYSCALLS.get(), ptr = SYSCALLS.get();
+        var pathOff = BROWSIX.browsix.SHM_OFF;
+        var bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        var shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        var ret = BROWSIX.browsix.syscall.sync(SYS_LSTAT, pathOff, bufOff);
         if (ret === 0) {
           BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
         }
@@ -832,12 +843,12 @@ var BrowsixLibrary = {
       };
       exports.__syscall197 = function(which, varargs) { // SYS_fstat64
         SYSCALLS.varargs = varargs;
-        let SYS_FSTAT = 197;
-        let path = SYSCALLS.get(), ptr = SYSCALLS.get();
-        let pathOff = BROWSIX.browsix.SHM_OFF;
-        let bufOff = BROWSIX.browsix.putShmString(pathOff, path);
-        let shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
-        let ret = BROWSIX.browsix.syscall.sync(SYS_FSTAT, pathOff, bufOff);
+        var SYS_FSTAT = 197;
+        var path = SYSCALLS.get(), ptr = SYSCALLS.get();
+        var pathOff = BROWSIX.browsix.SHM_OFF;
+        var bufOff = BROWSIX.browsix.putShmString(pathOff, path);
+        var shmLen = BROWSIX.browsix.getShmLenAt(bufOff, {{{ C_STRUCTS.stat.__size__ }}});
+        var ret = BROWSIX.browsix.syscall.sync(SYS_FSTAT, pathOff, bufOff);
         if (ret === 0) {
           BROWSIX.browsix.copyToUser(ptr, bufOff, shmLen);
         }
@@ -845,12 +856,12 @@ var BrowsixLibrary = {
       };
       exports.__syscall220 = function(which, varargs) { // SYS_getdents64
         SYSCALLS.varargs = varargs;
-        let SYS_GETDENTS64 = 220;
-        let fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
-        // let shmBuf = BROWSIX.browsix.getShm({{{ C_STRUCTS.dirent.__size__ }}} * count);
-        let shmLen = BROWSIX.browsix.getShmLen(count);
-        let shmOff = BROWSIX.browsix.SHM_OFF;
-        let ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, shmOff, shmLen);
+        var SYS_GETDENTS64 = 220;
+        var fd = SYSCALLS.get(), dirp = SYSCALLS.get(), count = SYSCALLS.get();
+        // var shmBuf = BROWSIX.browsix.getShm({{{ C_STRUCTS.dirent.__size__ }}} * count);
+        var shmLen = BROWSIX.browsix.getShmLen(count);
+        var shmOff = BROWSIX.browsix.SHM_OFF;
+        var ret = BROWSIX.browsix.syscall.sync(SYS_GETDENTS64, fd, shmOff, shmLen);
         if (ret >= 0) {
           BROWSIX.browsix.copyToUser(dirp, shmOff, shmLen);
         }
@@ -858,9 +869,9 @@ var BrowsixLibrary = {
       };
       exports.__syscall221 = function(which, varargs) { // fcntl64
         SYSCALLS.varargs = varargs;
-        let SYS_FCNTL64 = 221;
-        let fd = SYSCALLS.get(), cmd = SYSCALLS.get();
-        let arg = 0;
+        var SYS_FCNTL64 = 221;
+        var fd = SYSCALLS.get(), cmd = SYSCALLS.get();
+        var arg = 0;
 
         // only some of the commands have multiple arguments.
         switch (cmd) {
@@ -876,14 +887,14 @@ var BrowsixLibrary = {
       };
       exports.__syscall330 = function(which, varargs) { // dup3
         SYSCALLS.varargs = varargs;
-        let SYS_DUP3 = 330;
-        let fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
+        var SYS_DUP3 = 330;
+        var fd1 = SYSCALLS.get(), fd2 = SYSCALLS.get(), flags = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_DUP3, fd1, fd2, flags);
       };
       exports.__syscall331 = function(which, varargs) { // pipe2
         SYSCALLS.varargs = varargs;
-        let SYS_PIPE2 = 41;
-        let pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
+        var SYS_PIPE2 = 41;
+        var pipefd = SYSCALLS.get(), flags = SYSCALLS.get();
         return BROWSIX.browsix.syscall.sync(SYS_PIPE2, pipefd, flags);
       };
 
