@@ -735,7 +735,7 @@ var LEGALIZE_JS_FFI = 1; // Whether to legalize the JS FFI interfaces (imports/e
                          // non-wasm BINARYEN_METHOD settings.
 
 var WASM = 0; // Alias for BINARYEN, the two are identical. Both make us compile code to WebAssembly.
-
+var POLYBENCH = 0; //For Polybench benchmarks generate a loop to call main function 15 times
 var WASM_BACKEND = 0; // Whether to use the WebAssembly backend that is in development in LLVM.
                       // This requires that BINARYEN be set, as we use Binaryen's s2wasm to
                       // translate the backend output.
@@ -784,11 +784,6 @@ var ORIGINAL_EXPORTED_FUNCTIONS = [];
 var IN_TEST_HARNESS = 0; // If true, the current build is performed for the Emscripten test harness.
 
 var BROWSIX = 1; // If true, we assume we are compiling assets to run under Browsix in the browser.
-
-var BROWSIX_SHM_SIZE = 16777216; // The total size of the SharedArrayBuffer shared between the
-                                 // Browsix kernel and process.
-
-var BROWSIX_INLINE_WASM = 1; // copy WebAssembly into the JavaScript source file.
 
 var USE_PTHREADS = 0; // If true, enables support for pthreads.
 

@@ -25,7 +25,7 @@ from tools.shared import WINDOWS
 __rootpath__ = os.path.abspath(os.path.dirname(__file__))
 def path_from_root(*pathelems):
   """Returns the absolute path for which the given path elements are
-  relative to the emscripten root.
+  relative to the ems cripten root.
   """
   return os.path.join(__rootpath__, *pathelems)
 
@@ -108,7 +108,6 @@ def emscript(infile, settings, outfile, libraries=None, compiler_engine=None,
     outfile.close()
     if not success:
       shared.try_delete(outfile.name) # remove partial output
-
 
 def compile_js(infile, settings, temp_files, DEBUG):
   """Compile infile with asm.js backend, return the contents of the compiled js"""
@@ -346,7 +345,7 @@ def finalize_output(outfile, post, function_table_data, bundled_args, metadata, 
   if DEBUG:
     logging.debug('emscript: python processing: finalize')
     t = time.time()
-
+  
   write_output_file(outfile, post, module)
   module = None
 
@@ -366,7 +365,7 @@ def create_module(function_table_sigs, metadata, settings,
   asm_temp_vars = create_asm_temp_vars(settings)
   asm_runtime_thread_local_vars = create_asm_runtime_thread_local_vars(settings)
   asm_start = asm_start_pre + '\n' + asm_global_vars + asm_temp_vars + asm_runtime_thread_local_vars + '\n' + asm_global_funcs
-
+  
   temp_float = '  var tempFloat = %s;\n' % ('Math_fround(0)' if provide_fround(settings) else '0.0')
   async_state = '  var asyncState = 0;\n' if settings.get('EMTERPRETIFY_ASYNC') else ''
   f0_fround = '  const f0 = Math_fround(0);\n' if provide_fround(settings) else ''
@@ -378,14 +377,10 @@ def create_module(function_table_sigs, metadata, settings,
   asm_end = create_asm_end(exports, settings)
 
   runtime_library_overrides = create_runtime_library_overrides(settings)
-
-  if settings.get('BROWSIX'):
-    runtime_library_overrides = 'function initRuntimeFuncs () {\n%s\n} ' % (runtime_library_overrides,)
-    runtime_library_overrides += 'if (!ENVIRONMENT_IS_BROWSIX)\n    initRuntimeFuncs();'
-    receiving = 'function initReceiving () {\n%s\n} ' % (receiving,)
-    receiving += 'if (!ENVIRONMENT_IS_BROWSIX)\n    initReceiving();'
-
-
+  runtime_library_overrides = "function initRuntimeFuncs () {\n%s\n} " %runtime_library_overrides
+  runtime_library_overrides += """if (!ENVIRONMENT_IS_BROWSIX)\n    initRuntimeFuncs ();"""
+  receiving = "function initReceiving () {\n%s\n} " %receiving
+  receiving += "if (!ENVIRONMENT_IS_BROWSIX)\n    initReceiving ();"
   module = [
     asm_start,
     temp_float,
@@ -401,7 +396,7 @@ def create_module(function_table_sigs, metadata, settings,
     module.append('''
 Runtime.registerFunctions(%(sigs)s, Module);
 ''' % { 'sigs': str(map(str, function_table_sigs)) })
-
+  
   return module
 
 
@@ -1302,15 +1297,9 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
 };
 ''' for s in exported_implemented_functions if s not in ['_memcpy', '_memset', 'runPostSets', '_emscripten_replace_memory', '__start_module']])
   if not settings['SWAPPABLE_ASM_MODULE']:
-    if settings['BROWSIX']:
-      receiving += ';\n'.join([s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
-    else:
-      receiving += ';\n'.join(['var ' + s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
+    receiving += ';\n'.join([s + ' = Module["' + s + '"] = asm["' + s + '"]' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
   else:
-    if settings['BROWSIX']:
-      receiving += 'Module["asm"] = asm;\n' + ';\n'.join([s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])      
-    else:
-      receiving += 'Module["asm"] = asm;\n' + ';\n'.join(['var ' + s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
+    receiving += 'Module["asm"] = asm;\n' + ';\n'.join([s + ' = Module["' + s + '"] = function() {' + runtime_assertions + '  return Module["asm"]["' + s + '"].apply(null, arguments) }' for s in exported_implemented_functions + function_tables(function_table_data, settings)])
   receiving += ';\n'
 
   if settings['EXPORT_FUNCTION_TABLES'] and not settings['BINARYEN']:
@@ -1318,7 +1307,7 @@ def create_receiving(function_table_data, function_tables_defs, exported_impleme
       tableName = table.split()[1]
       table = table.replace('var ' + tableName, 'var ' + tableName + ' = Module["' + tableName + '"]')
       receiving += table + '\n'
-
+  
   if settings.get('EMULATED_FUNCTION_POINTERS'):
     receiving += '\n' + function_tables_defs.replace('// EMSCRIPTEN_END_FUNCS\n', '') + '\n' + ''.join(['Module["dynCall_%s"] = dynCall_%s\n' % (sig, sig) for sig in function_table_data])
     if not settings['BINARYEN']:
@@ -1497,26 +1486,185 @@ function getTempRet0() {
 }
 ''' if not settings['RELOCATABLE'] else '']
 
-
-def browsix_shim(settings):
-  if not settings['BROWSIX']:
-    return
-
-  return '''
-if (ENVIRONMENT_IS_BROWSIX) {
-  for (var x in BROWSIX.browsix) {
-    var m = /^__syscall(\d+)$/.exec(x);
-    if (!m)
-      continue;
-    if (typeof (this['_' + x]) === 'function') {
-      this['_' + x] = BROWSIX.browsix[x];
-      Module.asmLibraryArg['_' + x] = BROWSIX.browsix[x];
-    }
-  }
+  funcs_js = ['''
+%s
+Module%s = %s;
+%s
+Module%s = %s;
+// EMSCRIPTEN_START_ASM
+var asm = undefined;
+var asmModule = (function(global, env, buffer) {
+  %s
+  %s
+  %s
+''' % (asm_setup,
+       access_quote('asmGlobalArg'), the_global,
+       shared_array_buffer,
+       access_quote('asmLibraryArg'), sending,
+       "'use asm';" if not metadata.get('hasInlineJS') and settings['ASM_JS'] == 1 else "'almost asm';",
+       first_in_asm,
+       '''
+  var HEAP8 = new global%s(buffer);
+  var HEAP16 = new global%s(buffer);
+  var HEAP32 = new global%s(buffer);
+  var HEAPU8 = new global%s(buffer);
+  var HEAPU16 = new global%s(buffer);
+  var HEAPU32 = new global%s(buffer);
+  var HEAPF32 = new global%s(buffer);
+  var HEAPF64 = new global%s(buffer);
+''' % (access_quote('Int8Array'),
+     access_quote('Int16Array'),
+     access_quote('Int32Array'),
+     access_quote('Uint8Array'),
+     access_quote('Uint16Array'),
+     access_quote('Uint32Array'),
+     access_quote('Float32Array'),
+     access_quote('Float64Array'))
+     if not settings['ALLOW_MEMORY_GROWTH'] else '''
+  var Int8View = global%s;
+  var Int16View = global%s;
+  var Int32View = global%s;
+  var Uint8View = global%s;
+  var Uint16View = global%s;
+  var Uint32View = global%s;
+  var Float32View = global%s;
+  var Float64View = global%s;
+  var HEAP8 = new Int8View(buffer);
+  var HEAP16 = new Int16View(buffer);
+  var HEAP32 = new Int32View(buffer);
+  var HEAPU8 = new Uint8View(buffer);
+  var HEAPU16 = new Uint16View(buffer);
+  var HEAPU32 = new Uint32View(buffer);
+  var HEAPF32 = new Float32View(buffer);
+  var HEAPF64 = new Float64View(buffer);
+  var byteLength = global.byteLength;
+''' % (access_quote('Int8Array'),
+     access_quote('Int16Array'),
+     access_quote('Int32Array'),
+     access_quote('Uint8Array'),
+     access_quote('Uint16Array'),
+     access_quote('Uint32Array'),
+     access_quote('Float32Array'),
+     access_quote('Float64Array'))) + '\n' + asm_global_vars + ('''
+  var __THREW__ = 0;
+  var threwValue = 0;
+  var setjmpId = 0;
+  var undef = 0;
+  var nan = global%s, inf = global%s;
+  var tempInt = 0, tempBigInt = 0, tempBigIntP = 0, tempBigIntS = 0, tempBigIntR = 0.0, tempBigIntI = 0, tempBigIntD = 0, tempValue = 0, tempDouble = 0.0;
+  var tempRet0 = 0;
+''' % (access_quote('NaN'), access_quote('Infinity'))) + '\n' + asm_global_funcs] + \
+  ['  var tempFloat = %s;\n' % ('Math_fround(0)' if provide_fround else '0.0')] + \
+  ['  var asyncState = 0;\n' if settings.get('EMTERPRETIFY_ASYNC') else ''] + \
+  (['  const f0 = Math_fround(0);\n'] if provide_fround else []) + \
+  ['' if not settings['ALLOW_MEMORY_GROWTH'] else '''
+function _emscripten_replace_memory(newBuffer) {
+  if ((byteLength(newBuffer) & 0xffffff || byteLength(newBuffer) <= 0xffffff) || byteLength(newBuffer) > 0x80000000) return false;
+  HEAP8 = new Int8View(newBuffer);
+  HEAP16 = new Int16View(newBuffer);
+  HEAP32 = new Int32View(newBuffer);
+  HEAPU8 = new Uint8View(newBuffer);
+  HEAPU16 = new Uint16View(newBuffer);
+  HEAPU32 = new Uint32View(newBuffer);
+  HEAPF32 = new Float32View(newBuffer);
+  HEAPF64 = new Float64View(newBuffer);
+  buffer = newBuffer;
+  return true;
 }
-'''
+'''] + ['''
+// EMSCRIPTEN_START_FUNCS
+'''] + runtime_funcs + funcs_js + ['''
+  ''', pre_tables, final_function_tables, '''
 
+  return %s;
+});
+// EMSCRIPTEN_END_ASM
+if (!ENVIRONMENT_IS_BROWSIX) {
+  if (typeof asmModule !== 'undefined')
+    asm = asmModule(%s, %s, buffer);
+  else
+    asm = asm(%s, %s, buffer);
+} else {
+  if (typeof SharedArrayBuffer !== 'undefined') Module.asmGlobalArg['Atomics'] = Atomics;
+}
+''' % (exports,
+       'Module' + access_quote('asmGlobalArg'),
+       'Module' + access_quote('asmLibraryArg'),
+       'Module' + access_quote('asmGlobalArg'),
+       'Module' + access_quote('asmLibraryArg')), '''
+''', receiving_decls, '''
+function initReceiving() {
+''', receiving, ''';
+}
+if (!ENVIRONMENT_IS_BROWSIX)
+  initReceiving();
+''']
 
+  funcs_js.append('''
+function initRuntimeFuncs() {
+''')
+
+  if not settings.get('SIDE_MODULE'):
+      funcs_js.append('''
+  Runtime.stackAlloc = asm['stackAlloc'];
+  Runtime.stackSave = asm['stackSave'];
+  Runtime.stackRestore = asm['stackRestore'];
+  Runtime.establishStackSpace = asm['establishStackSpace'];
+''')
+  if settings['SAFE_HEAP']:
+        funcs_js.append('''
+  Runtime.setDynamicTop = asm['setDynamicTop'];
+''')
+
+  if not settings['RELOCATABLE']:
+      funcs_js.append('''
+  Runtime.setTempRet0 = asm['setTempRet0'];
+  Runtime.getTempRet0 = asm['getTempRet0'];
+''')
+
+  funcs_js.append('''
+}
+if (!ENVIRONMENT_IS_BROWSIX)
+  initRuntimeFuncs();
+''')
+
+  # Set function table masks
+  masks = {}
+  max_mask = 0
+  for sig, table in last_forwarded_json['Functions']['tables'].iteritems():
+    mask = table.count(',')
+    masks[sig] = str(mask)
+    max_mask = max(mask, max_mask)
+  def function_table_maskize(js, masks):
+    def fix(m):
+      sig = m.groups(0)[0]
+      return masks[sig]
+    return re.sub(r'{{{ FTM_([\w\d_$]+) }}}', fix, js) # masks[m.groups(0)[0]]
+  for i in range(len(funcs_js)): # in-place as this can be large
+    funcs_js[i] = function_table_maskize(funcs_js[i], masks)
+
+  if settings['SIDE_MODULE']:
+    funcs_js.append('''
+Runtime.registerFunctions(%(sigs)s, Module);
+''' % { 'sigs': str(map(str, last_forwarded_json['Functions']['tables'].keys())) })
+
+    for i in range(len(funcs_js)): # do this loop carefully to save memory
+      if WINDOWS: funcs_js[i] = funcs_js[i].replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
+      outfile.write(funcs_js[i])
+    funcs_js = None
+
+    if WINDOWS: post = post.replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
+    outfile.write(post)
+
+    if DEBUG:
+      logging.debug('  emscript: python processing: finalize took %s seconds' % (time.time() - t))
+
+    if settings['CYBERDWARF']:
+      assert('cyberdwarf_data' in metadata)
+      cd_file_name = outfile.name + ".cd"
+      with open(cd_file_name, "w") as cd_file:
+        json.dump({ 'cyberdwarf': metadata['cyberdwarf_data'] }, cd_file)
+        
 def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
   access_quote = access_quoter(settings)
 
@@ -1528,17 +1676,10 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
   module_global = module_get.format(access=access_quote('asmGlobalArg'), val=the_global)
   module_library = module_get.format(access=access_quote('asmLibraryArg'), val=sending)
 
-  shim_browsix = browsix_shim(settings)
-
-  asm_function_top = ('// EMSCRIPTEN_START_ASM\n'
-                      'var asm = (function(global, env, buffer) {')
-
-  if settings.get('BROWSIX'):
-    asm_function_top = ('var asm = undefined;\n'
-                        '// EMSCRIPTEN_START_ASM\n'
-                        'var asmModule = (function(global, env, buffer) {')
-
-
+  asm_function_top = ('var asm = undefined;\n'
+                      '// EMSCRIPTEN_START_ASM\n'
+                      'var asmModule = (function(global, env, buffer) {')
+  
   use_asm = "'almost asm';"
   if not metadata.get('hasInlineJS') and settings['ASM_JS'] == 1:
     use_asm = "'use asm';"
@@ -1548,7 +1689,6 @@ def create_asm_start_pre(asm_setup, the_global, sending, metadata, settings):
     module_global,
     shared_array_buffer,
     module_library,
-    shim_browsix,
     asm_function_top,
     use_asm,
     create_first_in_asm(settings),
@@ -1601,24 +1741,17 @@ function _emscripten_replace_memory(newBuffer) {
 
 def create_asm_end(exports, settings):
   access_quote = access_quoter(settings)
-  end = '''
-
+  q = '''
   return %s;
 })
 // EMSCRIPTEN_END_ASM
-''' % (exports,)
-
-  if not settings.get('BROWSIX'):
-    end += '(%s, %s, buffer);\n' % ('Module' + access_quote('asmGlobalArg'),
-                                    'Module' + access_quote('asmLibraryArg'))
-  else:
-    end += '''\nif (!ENVIRONMENT_IS_BROWSIX) {
-  asm = asmModule(%s, %s, buffer);
-}''' % ('Module' + access_quote('asmGlobalArg'),
-        'Module' + access_quote('asmLibraryArg'))
-
-  return end
-
+if (!ENVIRONMENT_IS_BROWSIX) {
+   asm = asmModule (%s, %s, buffer);
+ }
+''' % (exports,
+       'Module' + access_quote('asmGlobalArg'),
+       'Module' + access_quote('asmLibraryArg'))
+  return q
 
 def create_runtime_library_overrides(settings):
   overrides = []
@@ -2001,10 +2134,9 @@ def create_module_wasm(sending, receiving, invoke_funcs, settings):
 Module%s = %s;
 %s
 Module%s = %s;
-%s
 ''' % (access_quote('asmGlobalArg'), the_global,
      shared_array_buffer,
-       access_quote('asmLibraryArg'), sending, browsix_shim(settings)) + '''
+     access_quote('asmLibraryArg'), sending) + '''
 var asm = Module['asm'](%s, %s, buffer);
 %s;
 ''' % ('Module' + access_quote('asmGlobalArg'),

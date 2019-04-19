@@ -144,7 +144,11 @@ var calledMain = false;
 
 dependenciesFulfilled = function runCaller() {
   // If run has never been called, and we should call run (INVOKE_RUN is true, and Module.noInitialRun is not false)
+#if WASM
   if (!Module['calledRun']) run(Module['arguments']);
+#else
+  if (!Module['calledRun']) run();
+#endif
   if (!Module['calledRun']) dependenciesFulfilled = runCaller; // try this again later, after new deps are fulfilled
 }
 
@@ -187,11 +191,16 @@ Module['callMain'] = Module.callMain = function callMain(args) {
     // that will call the user's real main() for the application.
     var ret = Module['_proxy_main'](argc, argv, 0);
 #else
-    if (Module['__browsix_start'] == undefined)
-      var ret = Module['_main'](argc, argv, 0);
-    else
-      var ret = Module['__browsix_start'](argc, argv, 0);
+#if POLYBENCH
+    for (var i = 0; i < 15; i++)
+    {
 #endif
+      var ret = Module['_main'](argc, argv, 0);
+#if POLYBENCH
+    }
+#endif
+#endif
+  console.log ("Time spent in System Calls:" + browsixTime + " milliseconds ");
 
 #if BENCHMARK
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
@@ -199,16 +208,16 @@ Module['callMain'] = Module.callMain = function callMain(args) {
 
 #if BROWSIX
 #if EMTERPRETIFY_ASYNC
-    if (ENVIRONMENT_IS_BROWSIX) {
-      if (EmterpreterAsync.state !== 1)
-        exit(ret, /* implicit = */ true);
-    } else {
+    if (ENVIRONMENT_IS_BROWSIX && EmterpreterAsync.state !== 1)
       exit(ret, /* implicit = */ true);
-    }
-#endif
-#endif
+#else
     // if we're not running an evented main loop, it's time to exit
     exit(ret, /* implicit = */ true);
+#endif
+#else
+    // if we're not running an evented main loop, it's time to exit
+    exit(ret, /* implicit = */ true);
+#endif
   }
   catch(e) {
     if (e instanceof ExitStatus) {
@@ -413,7 +422,9 @@ Module["noExitRuntime"] = true;
 
 #if BROWSIX
 if (ENVIRONMENT_IS_BROWSIX) {
-  self.onmessage = BROWSIX.browsix.syscall.resultHandler.bind(BROWSIX.browsix.syscall);
+  var ENV={};
+  self.onmessage = SYSCALLS.browsix.syscall.resultHandler.bind(SYSCALLS.browsix.syscall);
+  //self.onmessage = function() { console.log('TODO: handle browsix init'); }
   Runtime.process.once('ready', function() {
     Module['thisProgram'] = Runtime.process.argv[0];
     for (var k in Runtime.process.env) {
@@ -427,9 +438,10 @@ if (ENVIRONMENT_IS_BROWSIX) {
     if (Runtime.process.pid) {
       abort('TODO: sync post-fork?');
     } else {
-      var args = Runtime.process.argv.slice(2);
-      Module['arguments'] = args;
-      run(args);
+#if WASM
+      Module['arguments'] = Runtime.process.argv.slice(2);
+#endif
+      run(Runtime.process.argv.slice(2));
     }
   });
 } else if (typeof ENVIRONMENT_IS_PTHREAD === 'undefined' || !ENVIRONMENT_IS_PTHREAD) {

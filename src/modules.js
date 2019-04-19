@@ -146,11 +146,12 @@ var LibraryManager = {
         'library_vr.js'
       ]);
     }
-
-    if (BROWSIX) {
-      libraries = libraries.concat([
-        'library_browsix.js',
-      ]);
+    
+    //if (BROWSIX) 
+    {
+      //libraries = libraries.concat([
+      //  'library_browsix.js'
+      //]);
     }
 
     // If there are any explicitly specified system JS libraries to link to, add those to link.
@@ -171,12 +172,13 @@ var LibraryManager = {
       libraries = [];
       LibraryManager.library = {};
     }
-
+    
     for (var i = 0; i < libraries.length; i++) {
       var filename = libraries[i];
       var src = read(filename);
       try {
         var processed = processMacros(preprocess(src, filename));
+        //console.log ("PROCESSED " + filename + ":\n" + src+"\n\n");
         eval(processed);
       } catch(e) {
         var details = [e, e.lineNumber ? 'line number: ' + e.lineNumber : '', (e.stack || "").toString().replace('Object.<anonymous>', filename)];

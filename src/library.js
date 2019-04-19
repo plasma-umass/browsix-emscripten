@@ -2726,7 +2726,6 @@ LibraryManager.library = {
   // ==========================================================================
   // sys/time.h
   // ==========================================================================
-
   nanosleep__deps: ['usleep'],
   nanosleep: function(rqtp, rmtp) {
     // int nanosleep(const struct timespec  *rqtp, struct timespec *rmtp);
@@ -2737,12 +2736,12 @@ LibraryManager.library = {
       {{{ makeSetValue('rmtp', C_STRUCTS.timespec.tv_nsec, '0', 'i32') }}};
     }
 #if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX)
-      return BROWSIX.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
-#endif
+    return SYSCALLS.browsix.syscall.usleep((seconds * 1e6) + (nanoseconds / 1000));
+#else
     return _usleep((seconds * 1e6) + (nanoseconds / 1000));
+#endif
   },
-
+  
   clock_gettime__deps: ['emscripten_get_now', 'emscripten_get_now_is_monotonic', '$ERRNO_CODES', '__setErrNo'],
   clock_gettime: function(clk_id, tp) {
     // int clock_gettime(clockid_t clk_id, struct timespec *tp);

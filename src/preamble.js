@@ -27,6 +27,7 @@ Runtime['removeFunction'] = Runtime.removeFunction;
 #endif
 
 #if BROWSIX
+var browsixTime = 0.0;
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -66,12 +67,11 @@ var Process = (function (_super) {
         this.argv = argv;
         this.env = environ;
         this.syscall = null;
-        this.isReady = false;
     }
     Process.prototype.exit = function (code) {
         //Module['noExitRuntime'] = false;
         if (code === void 0) { code = 0; }
-        BROWSIX.browsix.syscall.exit(code);
+        SYSCALLS.browsix.syscall.exit(code);
     };
     return Process;
 })(OnceEmitter);
@@ -1037,6 +1037,17 @@ function updateGlobalBufferViews() {
   // needed when run under emterpreter.
   if (typeof asm !== 'undefined' && asm.update_heap)
     asm.update_heap();
+  else
+  {
+    HEAP8 = Module['HEAP8'];
+    HEAP16 = Module['HEAP16'];
+    HEAP32 = Module['HEAP32'];
+    HEAPU8 = Module['HEAPU8'];
+    HEAPU16 = Module['HEAPU16'];
+    HEAPU32 = Module['HEAPU32'];
+    HEAPF32 = Module['HEAPF32'];
+    HEAPF64 = Module['HEAPF64'];
+  }
 #endif
 }
 
@@ -1214,6 +1225,13 @@ try {
 var TOTAL_STACK = Module['TOTAL_STACK'] || {{{ TOTAL_STACK }}};
 var TOTAL_MEMORY = Module['TOTAL_MEMORY'] || {{{ TOTAL_MEMORY }}};
 if (TOTAL_MEMORY < TOTAL_STACK) Module.printErr('TOTAL_MEMORY should be larger than TOTAL_STACK, was ' + TOTAL_MEMORY + '! (TOTAL_STACK=' + TOTAL_STACK + ')');
+
+#if BROWSIX
+#if !EMTERPRETIFY_ASYNC
+var REAL_TOTAL_MEMORY = TOTAL_MEMORY;
+//TOTAL_MEMORY = 16*1024*1024;
+#endif
+#endif
 
 // Initialize the runtime's memory
 #if ASSERTIONS
@@ -2543,12 +2561,6 @@ function integrateWasmJS() {
   // doesn't need to care that it is wasm or olyfilled wasm or asm.js.
 
   Module['asm'] = function(global, env, providedBuffer) {
-#if BROWSIX
-    if (ENVIRONMENT_IS_BROWSIX && !Runtime.process.isReady) {
-      return;
-    }
-#endif
-
     global = fixImports(global);
     env = fixImports(env);
 
@@ -2572,10 +2584,11 @@ function integrateWasmJS() {
     if (!env['memoryBase']) {
       env['memoryBase'] = Module['STATIC_BASE']; // tell the memory segments where to place themselves
     }
+    env['__memory_base'] = env['memoryBase'];
     if (!env['tableBase']) {
       env['tableBase'] = 0; // table starts at 0 by default, in dynamic linking this will change
     }
-
+    env['__table_base'] = env['tableBase'];
     // try the methods. each should return the exports if it succeeded
 
     var exports;
