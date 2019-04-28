@@ -1,5 +1,5 @@
 mergeInto(LibraryManager.library, {
-  $PIPEFS__postset: '__ATINIT__.push(function() { PIPEFS.root = FS.mount(PIPEFS, {}, null); });',
+  $PIPEFS__postset: 'if (!ENVIRONMENT_IS_BROWSIX) {__ATINIT__.push(function() { PIPEFS.root = FS.mount(PIPEFS, {}, null); });}',
   $PIPEFS__deps: ['$FS'],
   $PIPEFS: {
     BUCKET_BUFFER_SIZE: 1024 * 8, // 8KiB Buffer
